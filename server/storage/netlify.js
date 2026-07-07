@@ -87,13 +87,20 @@ function createNetlifyStorage({ repoDataFile }) {
     const filename = `${base}-${Date.now()}.jpg`;
     const key = `${productId}/${filename}`;
 
-    const optimized = await sharp(buffer)
-      .rotate()
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 85, mozjpeg: true })
-      .toBuffer();
+    let optimized = buffer;
+    try {
+      optimized = await sharp(buffer)
+        .rotate()
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 85, mozjpeg: true })
+        .toBuffer();
+    } catch (err) {
+      console.warn('Sharp komprimering sprunget over:', err.message);
+    }
 
-    await imagesStore.set(key, optimized, { metadata: { contentType: 'image/jpeg' } });
+    await imagesStore.set(key, optimized, {
+      metadata: { contentType: 'image/jpeg' },
+    });
     return `/assets/images/bikes/${productId}/${filename}`;
   }
 

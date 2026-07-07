@@ -235,6 +235,66 @@ imageGrid.addEventListener('click', e => {
 
 // ---- Drag & drop upload ----
 
+async function compressImageFile(file) {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Kun billedfiler er tilladt');
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const max = 1600;
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(result => {
+      if (result) resolve(result);
+      else reject(new Error('Kunne ikke komprimere billede'));
+    }, 'image/jpeg', 0.85);
+  });
+
+  const baseName = file.name.replace(/\.[^.]+$/, '') || 'billede';
+  return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result || '';
+      const base64 = String(result).split(',')[1];
+      if (!base64) reject(new Error('Kunne ikke læse billede'));
+      else resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('Kunne ikke læse billede'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadSingleImage(productId, file) {
+  const compressed = await compressImageFile(file);
+  const data = await fileToBase64(compressed);
+
+  const res = await fetch(`/api/admin/products/${productId}/images`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({
+      images: [{ name: compressed.name, data }],
+    }),
+  });
+
+  const payload = await res.json();
+  if (!res.ok) throw new Error(payload.error || 'Upload fejlede');
+  return payload.urls || [];
+}
+
 dropZone.addEventListener('click', () => fileInput.click());
 
 dropZone.addEventListener('dragover', e => {
@@ -268,27 +328,21 @@ async function uploadFiles(fileList) {
     document.getElementById('bikeId').value = productId;
   }
 
-  const formData = new FormData();
-  for (const file of fileList) {
-    formData.append('images', file);
-  }
-
   pendingUploads++;
   document.getElementById('saveBtn').disabled = true;
 
-  try {
-    const res = await fetch(`/api/admin/products/${productId}/images`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      body: formData,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload fejlede');
+  let uploadedCount = 0;
 
-    formImages.push(...data.urls);
+  try {
+    for (const file of fileList) {
+      const urls = await uploadSingleImage(productId, file);
+      formImages.push(...urls);
+      uploadedCount += urls.length;
+    }
+
     if (!mainImage && formImages.length) mainImage = formImages[0];
     renderImageGrid();
-    showToast(`${data.urls.length} billede${data.urls.length !== 1 ? 'r' : ''} uploadet`);
+    showToast(`${uploadedCount} billede${uploadedCount !== 1 ? 'r' : ''} uploadet`);
   } catch (err) {
     formError.textContent = err.message;
     formError.hidden = false;

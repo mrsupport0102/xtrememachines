@@ -32,7 +32,7 @@ function createApp({ serveStatic = true } = {}) {
     app.set('trust proxy', 1);
   }
 
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '12mb' }));
 
   function requireAuth(req, res, next) {
     if (isAuthenticated(req, SESSION_SECRET)) return next();
@@ -303,19 +303,50 @@ function createApp({ serveStatic = true } = {}) {
     }
   });
 
-  app.post('/api/admin/products/:id/images', requireAuth, upload.array('images', 20), async (req, res) => {
+  function parseUploadedImages(req) {
+    if (req.files?.length) {
+      return req.files.map(file => ({
+        buffer: file.buffer,
+        originalname: file.originalname,
+      }));
+    }
+
+    if (Array.isArray(req.body?.images)) {
+      return req.body.images
+        .map(img => {
+          const raw = String(img.data || '').replace(/^data:[^;]+;base64,/, '');
+          if (!raw) return null;
+          return {
+            buffer: Buffer.from(raw, 'base64'),
+            originalname: img.name || 'billede.jpg',
+          };
+        })
+        .filter(Boolean);
+    }
+
+    return [];
+  }
+
+  app.post('/api/admin/products/:id/images', requireAuth, (req, res, next) => {
+    if (req.is('multipart/form-data')) {
+      return upload.array('images', 20)(req, res, next);
+    }
+    next();
+  }, async (req, res) => {
     try {
       const productId = req.params.id;
       const products = await readAndMigrateProducts();
       if (!products.find(p => p.id === productId)) {
         return res.status(404).json({ error: 'Motorcykel ikke fundet' });
       }
-      if (!req.files?.length) {
+
+      const uploads = parseUploadedImages(req);
+      if (!uploads.length) {
         return res.status(400).json({ error: 'Ingen billeder modtaget' });
       }
 
       const urls = [];
-      for (const file of req.files) {
+      for (const file of uploads) {
         const url = await storage.saveImage(file.buffer, productId, file.originalname);
         urls.push(url);
       }
@@ -328,6 +359,7 @@ function createApp({ serveStatic = true } = {}) {
 
       res.json({ urls });
     } catch (err) {
+      console.error('Billedupload fejlede:', err);
       res.status(400).json({ error: err.message || 'Upload fejlede' });
     }
   });
