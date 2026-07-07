@@ -169,9 +169,15 @@ function createApp({ serveStatic = true } = {}) {
   app.get('/assets/images/bikes/:productId/:filename', async (req, res) => {
     try {
       const data = await storage.getImage(req.params.productId, req.params.filename);
-      if (!data) return res.status(404).end();
-      res.set('Cache-Control', 'public, max-age=31536000, immutable');
-      res.type('image/jpeg').send(data);
+      if (!data || !Buffer.isBuffer(data) || data.length < 3 || data[0] !== 0xff || data[1] !== 0xd8) {
+        return res.status(404).end();
+      }
+      res.set({
+        'Content-Type': 'image/jpeg',
+        'Content-Length': data.length,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      });
+      res.end(data);
     } catch (err) {
       console.error('getImage fejlede:', err.message);
       res.status(404).end();

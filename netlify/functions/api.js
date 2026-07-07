@@ -3,7 +3,9 @@ const { connectLambda } = require('@netlify/blobs');
 const { createApp } = require('../../server/createApp');
 
 const app = createApp({ serveStatic: false });
-const slsHandler = serverless(app);
+const slsHandler = serverless(app, {
+  binary: ['image/jpeg', 'image/*', 'application/octet-stream'],
+});
 
 exports.handler = async (event, context) => {
   try {

@@ -90,7 +90,9 @@ async function run() {
   const imgUrl = r.data.image;
   const imgRes = await fetch(imgUrl.startsWith('http') ? imgUrl : `${BASE}${imgUrl}`);
   assert(imgRes.status === 200, 'image serve failed');
-  console.log('✓ Image accessible');
+  const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+  assert(imgBuf[0] === 0xff && imgBuf[1] === 0xd8, 'image is not valid JPEG');
+  console.log('✓ Image accessible and valid JPEG');
 
   r = await req('DELETE', `/api/admin/products/${id}`);
   assert(r.status === 200, 'delete failed');

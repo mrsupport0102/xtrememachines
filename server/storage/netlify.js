@@ -129,6 +129,10 @@ function createNetlifyStorage({ repoDataFile }) {
     }
   }
 
+  function isValidJpeg(buf) {
+    return Buffer.isBuffer(buf) && buf.length > 2 && buf[0] === 0xff && buf[1] === 0xd8;
+  }
+
   async function saveImage(buffer, productId, originalName) {
     try {
       const { imagesStore } = getStores();
@@ -141,19 +145,27 @@ function createNetlifyStorage({ repoDataFile }) {
       const filename = `${base}-${Date.now()}.jpg`;
       const key = `${productId}/${filename}`;
 
-      let optimized = buffer;
-      try {
-        optimized = await sharp(buffer)
-          .rotate()
-          .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 85, mozjpeg: true })
-          .toBuffer();
-      } catch (err) {
-        console.warn('Sharp komprimering sprunget over:', err.message);
+      let optimized = Buffer.from(buffer);
+      if (isValidJpeg(optimized)) {
+        try {
+          optimized = await sharp(optimized)
+            .rotate()
+            .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85, mozjpeg: true })
+            .toBuffer();
+        } catch (err) {
+          console.warn('Sharp komprimering sprunget over:', err.message);
+        }
       }
 
-      await imagesStore.set(key, Buffer.from(optimized), {
-        metadata: { contentType: 'image/jpeg' },
+      if (!isValidJpeg(optimized)) {
+        throw new Error('Ugyldigt billedformat efter behandling');
+      }
+
+      // Gem som base64-tekst – undgår UTF-8-korruption af binære JPEG-bytes i Blobs
+      const base64Data = optimized.toString('base64');
+      await imagesStore.set(key, base64Data, {
+        metadata: { contentType: 'image/jpeg', encoding: 'base64' },
       });
       return `/assets/images/bikes/${productId}/${filename}`;
     } catch (err) {
@@ -174,12 +186,26 @@ function createNetlifyStorage({ repoDataFile }) {
 
   async function getImage(productId, filename) {
     const { imagesStore } = getStores();
-    const data = await imagesStore.get(`${productId}/${filename}`, { type: 'arrayBuffer' });
-    if (!data) return null;
-    if (Buffer.isBuffer(data)) return data;
-    if (data instanceof ArrayBuffer) return Buffer.from(data);
-    if (ArrayBuffer.isView(data)) return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
-    return null;
+    const key = `${productId}/${filename}`;
+
+    try {
+      const asText = await imagesStore.get(key, { type: 'text' });
+      if (asText) {
+        const buf = Buffer.from(asText, 'base64');
+        if (isValidJpeg(buf)) return buf;
+      }
+    } catch {
+      // Prøv legacy binær format nedenfor
+    }
+
+    try {
+      const data = await imagesStore.get(key, { type: 'arrayBuffer' });
+      if (!data) return null;
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      return isValidJpeg(buf) ? buf : null;
+    } catch {
+      return null;
+    }
   }
 
   async function deleteImage(productId, filename) {
