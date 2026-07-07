@@ -1,77 +1,70 @@
 /**
- * Xtreme Machines – Adminpanel
+ * Xtreme Machines Admin v2
+ * Spejler produktsidens layout. Upload, sortering og gem i én flow.
  */
 
-let allBikes = [];
-let formImages = [];
-let mainImage = '';
-let editingId = null;
-let pendingUploads = 0;
+const state = {
+  view: 'list',
+  bikes: [],
+  productId: null,
+  product: null,
+  images: [],
+  specLines: [''],
+  cc: '',
+  gears: '',
+  km: '',
+  title: '',
+  price: '',
+  downPayment: '',
+  monthly: '',
+  note: '',
+  saving: false,
+  uploading: false,
+  uploadProgress: '',
+  dragImageIdx: null,
+  dragSpecIdx: null,
+  message: { type: '', text: '' },
+};
 
-const viewList = document.getElementById('viewList');
-const viewForm = document.getElementById('viewForm');
-const bikeList = document.getElementById('bikeList');
-const listCount = document.getElementById('listCount');
-const listEmpty = document.getElementById('listEmpty');
-const listSearch = document.getElementById('listSearch');
-const bikeForm = document.getElementById('bikeForm');
-const formTitle = document.getElementById('formTitle');
-const formError = document.getElementById('formError');
-const formSuccess = document.getElementById('formSuccess');
-const imageGrid = document.getElementById('imageGrid');
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const specRows = document.getElementById('specRows');
-const specFieldGrid = document.getElementById('specFieldGrid');
-const specPreview = document.getElementById('specPreview');
+// ---- API ----
 
-const SPEC_FIELD_DEFS = [
-  { id: 'highlight', label: 'Salgstekst / highlight', type: 'text', placeholder: 'Fx !!! DANMARKS BILLIGSTE SPORT GLIDE !!!', fullWidth: true },
-  { id: 'udstoedning', label: 'Udstødning', type: 'text', placeholder: 'Fx KESS TECH ELEKTRONISK JUSTERBAR UDSTØDNING', fullWidth: true },
-  { id: 'abs', label: 'ABS', type: 'toggle', value: 'ABS' },
-  { id: 'keyless', label: 'Keyless ride', type: 'toggle', value: 'KEYLESS RIDE' },
-  { id: 'alarm', label: 'Betjeningsfri alarm og startspærre', type: 'toggle', value: 'BETJENINGSFRI ALARM OG STARTSPÆRRE' },
-  { id: 'cruise', label: 'Cruise control', type: 'toggle', value: 'CRUISE CONTROL' },
-  { id: 'navigation', label: 'Navigation', type: 'text', placeholder: 'Fx TOM TOM NAVIGATION' },
-  { id: 'gearindikator', label: 'Gearindikator', type: 'toggle', value: 'GEARINDIKATOR' },
-  { id: 'koerecomputer', label: 'Kørecomputer', type: 'toggle', value: 'KØRECOMPUTER' },
-  { id: 'injection', label: 'Injection', type: 'toggle', value: 'INJECTION' },
-  { id: 'ryglaen', label: 'Aftagelig H-D ryglæn', type: 'toggle', value: 'AFTAGELIG H-D RYGLÆN' },
-  { id: 'blinklys', label: 'Blinklysglas for', type: 'text', placeholder: 'Fx SORTE BLINKLYSGLAS FOR' },
-  { id: 'tasker', label: 'Aftagelige tasker', type: 'toggle', value: 'AFTAGELIGE TASKER' },
-  { id: 'kaabe', label: 'Kåbe', type: 'text', placeholder: 'Fx AFTAGELIG KÅBE MED 3 SLAGS KÅBEGLAS', fullWidth: true },
-  { id: 'forgaffel', label: 'Forgaffel', type: 'text', placeholder: 'Fx SORT UPSIDE DOWN FORGAFFEL' },
-  { id: 'hjul', label: 'Hjul', type: 'text', placeholder: 'Fx CONTRAST CUT ALU HJUL' },
-  { id: 'forlygte', label: 'Forlygte', type: 'text', placeholder: 'Fx SORT LED FORLYGTE' },
-  { id: 'speedometer', label: 'Digital speedometer', type: 'toggle', value: 'DIGITAL SPEEDOMETER' },
-  { id: 'fremflytter', label: 'Fremflyttersæt', type: 'text', placeholder: 'Fx FREMFLYTTERSÆT' },
-  { id: 'stoeddaemper', label: 'Justerbar støddæmper', type: 'toggle', value: 'JUSTERBAR STØDDÆMPER' },
-  { id: 'passager_fod', label: 'Passager fodhvilersæt', type: 'toggle', value: 'PASSAGER FODHVILERSÆT' },
-  { id: 'passager_saede', label: 'Passager sæde', type: 'toggle', value: 'PASSAGER SÆDE' },
-  { id: 'styr', label: 'Styr', type: 'text', placeholder: 'Fx FAT BAR STYR' },
-  { id: 'bagende', label: 'Bag-ende', type: 'text', placeholder: 'Fx 180 BAGENDE' },
-  { id: 'synet', label: 'Synet', type: 'toggle', value: 'SYNET' },
-  { id: 'klargoering', label: 'Gennemgang og klargøring', type: 'toggle', value: 'GENNEMGANG OG KLARGØRING GENNEMFØRT' },
-  { id: 'levomk', label: 'Leveringsomkostninger', type: 'toggle', value: 'LEV. OMK. KR. 2.500' },
-  { id: 'pris_ialt', label: 'Pris i alt', type: 'text', placeholder: 'Fx PRIS IALT KR. 242.400', fullWidth: true },
-];
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
 
-// ---- Specifikationer (matcher server/productUtils.js) ----
+  let data = null;
+  const text = await res.text();
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = { error: text }; }
+  }
 
-function buildDescription({ cc, gears, km, specs = [] }) {
+  if (res.status === 401) {
+    window.location.href = '/admin/';
+    throw new Error('Ikke logget ind');
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.error || `Fejl ${res.status}`);
+  }
+
+  return data;
+}
+
+// ---- Spec helpers ----
+
+function buildDescription() {
   const parts = [];
-
-  if (cc) parts.push(`${String(cc).trim()} CC`);
-  if (gears) parts.push(`${String(gears).trim()} GEAR`);
-  if (km) parts.push(`KM. ${String(km).trim().replace(/\./g, '')}`);
-
-  specs
-    .map(s => String(s || '').trim())
+  if (state.cc.trim()) parts.push(`${state.cc.trim()} CC`);
+  if (state.gears.trim()) parts.push(`${state.gears.trim()} GEAR`);
+  if (state.km.trim()) parts.push(`KM. ${state.km.trim().replace(/\./g, '')}`);
+  state.specLines
+    .map(s => s.trim())
     .filter(Boolean)
-    .forEach(spec => parts.push(spec.toUpperCase()));
-
-  if (!parts.length) return '';
-  return `${parts.join(' - ')}.`;
+    .forEach(s => parts.push(s.toUpperCase()));
+  return parts.length ? `${parts.join(' - ')}.` : '';
 }
 
 function parseDescription(description = '') {
@@ -86,198 +79,25 @@ function parseDescription(description = '') {
   const specs = [];
 
   for (const part of parts) {
-    const ccMatch = part.match(/^(\d+)\s*CC$/i);
-    if (ccMatch) {
-      cc = ccMatch[1];
-      continue;
-    }
-
-    const gearMatch = part.match(/^(\d+)\s*GEAR$/i);
-    if (gearMatch) {
-      gears = gearMatch[1];
-      continue;
-    }
-
-    const kmMatch = part.match(/^KM\.?\s*(.+)$/i);
-    if (kmMatch) {
-      km = kmMatch[1].replace(/\./g, '').trim();
-      continue;
-    }
-
+    const ccM = part.match(/^(\d+)\s*CC$/i);
+    if (ccM) { cc = ccM[1]; continue; }
+    const gearM = part.match(/^(\d+)\s*GEAR$/i);
+    if (gearM) { gears = gearM[1]; continue; }
+    const kmM = part.match(/^KM\.?\s*(.+)$/i);
+    if (kmM) { km = kmM[1].replace(/\./g, ''); continue; }
     specs.push(part);
   }
 
   return { cc, gears, km, specs };
 }
 
-function normalizeSpecText(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function specMatchesField(spec, field) {
-  const normalized = normalizeSpecText(spec);
-  if (field.type === 'toggle') {
-    return normalized === normalizeSpecText(field.value);
-  }
-
-  const example = normalizeSpecText(field.placeholder?.replace(/^FX\s+/i, ''));
-  if (example && normalized === example) return true;
-
-  const keywords = {
-    highlight: ['!!!', '!! ', 'SUPERPRIS', 'BILLIGSTE'],
-    udstoedning: ['UDSTØDNING', 'UDSTODNING'],
-    navigation: ['NAVIGATION', 'TOM TOM'],
-    blinklys: ['BLINKLYSGLAS', 'BLINKLYS GLAS'],
-    kaabe: ['KÅBE', 'KABE', 'VINDSKÆRM'],
-    forgaffel: ['FORGAFFEL'],
-    hjul: ['ALU HJUL', 'HJUL'],
-    forlygte: ['FORLYGTE'],
-    fremflytter: ['FREMFLYTTERSÆT', 'FREMFLYTTERSAET'],
-    styr: ['STYR'],
-    bagende: ['BAGENDE'],
-    pris_ialt: ['PRIS IALT'],
-  };
-
-  const keys = keywords[field.id];
-  return Boolean(keys && keys.some(key => normalized.includes(key)));
-}
-
-function renderSpecFieldGrid(values = {}) {
-  specFieldGrid.innerHTML = SPEC_FIELD_DEFS.map(field => {
-    if (field.type === 'toggle') {
-      const checked = Boolean(values[field.id]);
-      return `
-        <div class="spec-field spec-field--toggle${field.fullWidth ? ' spec-field--full' : ''}">
-          <input type="checkbox" id="specField_${field.id}" data-spec-field="${field.id}" ${checked ? 'checked' : ''}>
-          <label for="specField_${field.id}">${escapeHtml(field.label)}</label>
-        </div>
-      `;
-    }
-
-    const value = values[field.id] || '';
-    return `
-      <div class="spec-field${field.fullWidth ? ' spec-field--full' : ''}">
-        <label for="specField_${field.id}">${escapeHtml(field.label)}</label>
-        <input type="text" id="specField_${field.id}" data-spec-field="${field.id}" value="${escapeAttr(value)}" placeholder="${escapeAttr(field.placeholder || '')}">
-      </div>
-    `;
-  }).join('');
-  updateSpecPreview();
-}
-
-function getFieldSpecValues() {
-  const values = {};
-
-  SPEC_FIELD_DEFS.forEach(field => {
-    const el = document.getElementById(`specField_${field.id}`);
-    if (!el) return;
-
-    if (field.type === 'toggle') {
-      values[field.id] = el.checked;
-      return;
-    }
-
-    values[field.id] = el.value.trim();
-  });
-
-  return values;
-}
-
-function collectSpecsFromFields(fieldValues) {
-  const specs = [];
-
-  SPEC_FIELD_DEFS.forEach(field => {
-    if (field.type === 'toggle') {
-      if (fieldValues[field.id]) specs.push(field.value);
-      return;
-    }
-
-    const value = String(fieldValues[field.id] || '').trim();
-    if (value) specs.push(value);
-  });
-
-  return specs;
-}
-
-function getSpecValues() {
-  const cc = document.getElementById('specCc').value.trim();
-  const gears = document.getElementById('specGears').value.trim();
-  const km = document.getElementById('specKm').value.trim();
-  const fieldValues = getFieldSpecValues();
-  const specs = [
-    ...collectSpecsFromFields(fieldValues),
-    ...[...specRows.querySelectorAll('.spec-row input')]
-      .map(input => input.value.trim())
-      .filter(Boolean),
-  ];
-
-  return { cc, gears, km, specs };
-}
-
-function updateSpecPreview() {
-  const values = getSpecValues();
-  const built = buildDescription(values);
-  specPreview.textContent = built || '–';
-}
-
-function renderSpecRows(specs = []) {
-  specRows.innerHTML = specs.map((value, index) => `
-    <div class="spec-row">
-      <input type="text" class="spec-row__input" value="${escapeAttr(value)}" placeholder="Fx SORT THUNDERBIKE LUFTFILTER">
-      <button type="button" class="spec-row__remove" data-remove-spec aria-label="Fjern specifikation">×</button>
-    </div>
-  `).join('');
-  updateSpecPreview();
-}
-
-function fillSpecFields(description) {
-  const parsed = parseDescription(description);
-  document.getElementById('specCc').value = parsed.cc;
-  document.getElementById('specGears').value = parsed.gears;
-  document.getElementById('specKm').value = parsed.km
-    ? parsed.km.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-    : '';
-
-  const fieldValues = {};
-  const usedFields = new Set();
-  const assignedSpecs = new Set();
-  const extras = [];
-
-  parsed.specs.forEach((spec, index) => {
-    const toggleField = SPEC_FIELD_DEFS.find(def =>
-      def.type === 'toggle'
-      && !usedFields.has(def.id)
-      && normalizeSpecText(spec) === normalizeSpecText(def.value)
-    );
-
-    if (toggleField) {
-      usedFields.add(toggleField.id);
-      assignedSpecs.add(index);
-      fieldValues[toggleField.id] = true;
-    }
-  });
-
-  parsed.specs.forEach((spec, index) => {
-    if (assignedSpecs.has(index)) return;
-
-    const textField = SPEC_FIELD_DEFS.find(def =>
-      def.type === 'text'
-      && !usedFields.has(def.id)
-      && specMatchesField(spec, def)
-    );
-
-    if (textField) {
-      usedFields.add(textField.id);
-      assignedSpecs.add(index);
-      fieldValues[textField.id] = spec;
-      return;
-    }
-
-    extras.push(spec);
-  });
-
-  renderSpecFieldGrid(fieldValues);
-  renderSpecRows(extras);
+function getPreviewSpecs() {
+  const items = [];
+  if (state.cc.trim()) items.push(`${state.cc.trim()} CC`);
+  if (state.gears.trim()) items.push(`${state.gears.trim()} GEAR`);
+  if (state.km.trim()) items.push(`KM. ${state.km.trim()}`);
+  state.specLines.filter(s => s.trim()).forEach(s => items.push(s.trim()));
+  return items;
 }
 
 function imageSrc(url) {
@@ -286,91 +106,317 @@ function imageSrc(url) {
   return url.startsWith('/') ? url : `/${url}`;
 }
 
-function syncImagesFromProduct(product) {
-  if (!product) return;
-  formImages = [...(product.images || [])];
-  mainImage = product.image || formImages[0] || '';
-}
-
-// ---- Auth check ----
-
-async function checkAuth() {
-  const res = await fetch('/api/admin/me', { credentials: 'same-origin' });
-  const data = await res.json();
-  if (!data.loggedIn) {
-    window.location.href = '/admin/';
-    return false;
+function relativePath(url) {
+  if (!url) return '';
+  try {
+    if (url.startsWith('/')) return url;
+    const u = new URL(url);
+    return u.pathname;
+  } catch {
+    return url;
   }
-  return true;
 }
 
-// ---- Navigation ----
+// ---- Image compression (Netlify 6MB limit) ----
 
-function showView(view) {
-  viewList.hidden = view !== 'list';
-  viewForm.hidden = view !== 'form';
+async function compressFile(file, maxDim = 1024, quality = 0.72) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
 
-  document.querySelectorAll('.admin-nav__link[data-view]').forEach(btn => {
-    btn.classList.toggle('admin-nav__link--active', btn.dataset.view === view && !btn.dataset.new);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+
+  let q = quality;
+  let blob = await canvasToBlob(canvas, q);
+
+  while (blob.size > 450000 && q > 0.4) {
+    q -= 0.08;
+    blob = await canvasToBlob(canvas, q);
+  }
+
+  const name = (file.name || 'billede').replace(/\.[^.]+$/, '') + '.jpg';
+  return new File([blob], name, { type: 'image/jpeg' });
+}
+
+function canvasToBlob(canvas, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Komprimering fejlede'))), 'image/jpeg', quality);
   });
 }
 
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.hidden = false;
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => { toast.hidden = true; }, 3000);
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = () => reject(new Error('Kunne ikke læse fil'));
+    reader.readAsDataURL(file);
+  });
 }
 
-// ---- Liste ----
+// ---- Data loading ----
 
 async function loadBikes() {
-  const res = await fetch('/api/admin/products', { credentials: 'same-origin' });
-  if (res.status === 401) {
-    window.location.href = '/admin/';
+  state.bikes = await api('/api/admin/products');
+}
+
+async function ensureProductId() {
+  if (state.productId) return state.productId;
+
+  const draft = await api('/api/admin/products/draft', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: state.title.trim() || 'Ny motorcykel',
+      price: state.price.trim() || '0',
+      description: buildDescription() || 'Udfyld specifikationer',
+      cc: state.cc,
+      gears: state.gears,
+      km: state.km,
+      specs: state.specLines.filter(s => s.trim()),
+    }),
+  });
+
+  state.productId = draft.id;
+  state.product = draft;
+  return draft.id;
+}
+
+async function openEditor(id = null) {
+  state.message = { type: '', text: '' };
+
+  if (id) {
+    const bike = await api(`/api/admin/products/${id}`);
+    state.productId = bike.id;
+    state.product = bike;
+    state.title = bike.title;
+    state.price = bike.price || '';
+    state.downPayment = bike.downPayment || '';
+    state.monthly = bike.monthly || '';
+    state.note = bike.note || '';
+    const parsed = parseDescription(bike.description);
+    state.cc = parsed.cc;
+    state.km = parsed.km ? parsed.km.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+    state.gears = parsed.gears;
+    state.specLines = parsed.specs.length ? parsed.specs : [''];
+    state.images = (bike.images || []).map((url, i) => ({
+      id: `img-${i}-${Date.now()}`,
+      url,
+      main: relativePath(url) === relativePath(bike.image) || i === 0,
+    }));
+    if (state.images.length && !state.images.some(img => img.main)) {
+      state.images[0].main = true;
+    }
+  } else {
+    state.productId = null;
+    state.product = null;
+    state.title = '';
+    state.price = '';
+    state.downPayment = '';
+    state.monthly = '';
+    state.note = '';
+    state.cc = '';
+    state.gears = '';
+    state.km = '';
+    state.specLines = [''];
+    state.images = [];
+  }
+
+  state.view = 'edit';
+  render();
+}
+
+async function saveProduct() {
+  state.message = { type: '', text: '' };
+
+  if (!state.title.trim()) {
+    state.message = { type: 'error', text: 'Titel er påkrævet' };
+    render();
     return;
   }
-  const data = await res.json();
-  if (!res.ok || !Array.isArray(data)) {
-    showToast(data?.error || 'Kunne ikke hente motorcykler');
-    allBikes = [];
-  } else {
-    allBikes = data;
+  if (!buildDescription()) {
+    state.message = { type: 'error', text: 'Udfyld mindst CC, gear, km eller én specifikationslinje' };
+    render();
+    return;
   }
-  renderList(allBikes);
+  if (!state.price.trim()) {
+    state.message = { type: 'error', text: 'Pris er påkrævet' };
+    render();
+    return;
+  }
+  if (!state.images.length) {
+    state.message = { type: 'error', text: 'Upload mindst ét billede' };
+    render();
+    return;
+  }
+
+  state.saving = true;
+  render();
+
+  try {
+    await ensureProductId();
+
+    const mainImg = state.images.find(i => i.main) || state.images[0];
+    const images = state.images.map(i => relativePath(i.url));
+    const mainPath = relativePath(mainImg.url);
+
+    const payload = {
+      title: state.title.trim(),
+      cc: state.cc.trim(),
+      gears: state.gears.trim(),
+      km: state.km.trim(),
+      specs: state.specLines.filter(s => s.trim()),
+      description: buildDescription(),
+      price: state.price.trim(),
+      downPayment: state.downPayment.trim() || null,
+      monthly: state.monthly.trim() || null,
+      note: state.note.trim() || null,
+      images,
+      image: mainPath,
+    };
+
+    const saved = await api(`/api/admin/products/${state.productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+
+    state.product = saved;
+    toast('Motorcykel gemt – vises nu på hjemmesiden');
+    await loadBikes();
+    state.view = 'list';
+    state.saving = false;
+    render();
+  } catch (err) {
+    state.saving = false;
+    state.message = { type: 'error', text: err.message };
+    render();
+  }
 }
 
-function formatListPrice(price) {
-  return price ? `${price},00 kr.` : '–';
-}
+async function uploadFiles(fileList) {
+  if (!fileList.length) return;
 
-function renderList(bikes) {
-  listCount.textContent = `${bikes.length} motorcykel${bikes.length !== 1 ? 'er' : ''} i alt`;
-  listEmpty.hidden = bikes.length > 0;
-  bikeList.innerHTML = bikes.map(b => `
-    <article class="bike-row" data-id="${b.id}">
-      <img class="bike-row__thumb" src="${escapeAttr(imageSrc(b.image))}" alt="" loading="lazy">
-      <div class="bike-row__info">
-        <p class="bike-row__title">${escapeHtml(b.title)}</p>
-        <p class="bike-row__meta">${formatListPrice(b.price)} · ${b.images?.length || 0} billeder</p>
-      </div>
-      <span class="bike-row__status bike-row__status--${b.status === 'sold' ? 'sold' : b.status === 'draft' ? 'draft' : 'available'}">
-        ${b.status === 'sold' ? 'Solgt' : b.status === 'draft' ? 'Kladde' : 'Til salg'}
-      </span>
-      <div class="bike-row__actions">
-        <button type="button" class="admin-btn admin-btn--ghost admin-btn--small" data-action="edit" data-id="${b.id}">Rediger</button>
-        ${b.status === 'sold'
-          ? `<button type="button" class="admin-btn admin-btn--ghost admin-btn--small" data-action="unsold" data-id="${b.id}">Gør tilgængelig</button>`
-          : `<button type="button" class="admin-btn admin-btn--ghost admin-btn--small" data-action="sold" data-id="${b.id}">Markér solgt</button>`
+  state.uploading = true;
+  state.message = { type: '', text: '' };
+  render();
+
+  try {
+    await ensureProductId();
+    const files = [...fileList].filter(f => f.type.startsWith('image/'));
+    let done = 0;
+
+    for (const file of files) {
+      state.uploadProgress = `Uploader ${done + 1} af ${files.length}…`;
+      render();
+
+      const compressed = await compressFile(file);
+      const data = await fileToBase64(compressed);
+
+      const result = await api(`/api/admin/products/${state.productId}/images`, {
+        method: 'POST',
+        body: JSON.stringify({ images: [{ name: compressed.name, data }] }),
+      });
+
+      const newUrls = result.urls || [];
+      newUrls.forEach(url => {
+        state.images.push({
+          id: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          url,
+          main: state.images.length === 0,
+        });
+      });
+
+      if (result.product?.images) {
+        state.images = result.product.images.map((url, i) => ({
+          id: state.images[i]?.id || `img-${i}-${Date.now()}`,
+          url,
+          main: relativePath(url) === relativePath(result.product.image),
+        }));
+        if (!state.images.some(i => i.main) && state.images.length) {
+          state.images[0].main = true;
         }
-        <button type="button" class="admin-btn admin-btn--danger admin-btn--small" data-action="delete" data-id="${b.id}">Slet</button>
-      </div>
-    </article>
-  `).join('');
+      }
+
+      done++;
+    }
+
+    toast(`${done} billede${done !== 1 ? 'r' : ''} uploadet`);
+  } catch (err) {
+    state.message = { type: 'error', text: err.message };
+  } finally {
+    state.uploading = false;
+    state.uploadProgress = '';
+    render();
+  }
 }
 
-function escapeHtml(str) {
+async function removeImage(idx) {
+  const img = state.images[idx];
+  if (!img) return;
+
+  if (state.productId && img.url && !img.url.startsWith('blob:')) {
+    try {
+      await api(`/api/admin/products/${state.productId}/images`, {
+        method: 'DELETE',
+        body: JSON.stringify({ url: relativePath(img.url) }),
+      });
+    } catch (err) {
+      state.message = { type: 'error', text: err.message };
+      render();
+      return;
+    }
+  }
+
+  const wasMain = img.main;
+  state.images.splice(idx, 1);
+  if (wasMain && state.images.length) state.images[0].main = true;
+  render();
+}
+
+function setMainImage(idx) {
+  state.images.forEach((img, i) => { img.main = i === idx; });
+  render();
+}
+
+function moveImage(from, to) {
+  if (from === to || from < 0 || to < 0 || from >= state.images.length || to >= state.images.length) return;
+  const [item] = state.images.splice(from, 1);
+  state.images.splice(to, 0, item);
+  render();
+}
+
+async function deleteBike(id) {
+  if (!confirm('Slet denne motorcykel permanent?')) return;
+  try {
+    await api(`/api/admin/products/${id}`, { method: 'DELETE' });
+    toast('Motorcykel slettet');
+    await loadBikes();
+    render();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+async function toggleSold(id, sold) {
+  try {
+    await api(`/api/admin/products/${id}/sold`, {
+      method: 'PATCH',
+      body: JSON.stringify({ sold }),
+    });
+    toast(sold ? 'Markeret som solgt' : 'Tilgængelig igen');
+    await loadBikes();
+    render();
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+// ---- UI helpers ----
+
+function esc(str) {
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -378,450 +424,373 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function escapeAttr(str) {
-  return escapeHtml(str);
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.hidden = false;
+  el.style.borderColor = isError ? 'rgba(227,30,36,0.5)' : '';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.hidden = true; }, 3000);
 }
 
-listSearch.addEventListener('input', e => {
-  const q = e.target.value.toLowerCase().trim();
-  const filtered = q
-    ? allBikes.filter(b =>
-        b.title.toLowerCase().includes(q) ||
-        b.description.toLowerCase().includes(q)
-      )
-    : allBikes;
-  renderList(filtered);
-});
-
-bikeList.addEventListener('click', async e => {
-  const btn = e.target.closest('[data-action]');
-  if (!btn) return;
-  const id = btn.dataset.id;
-  const action = btn.dataset.action;
-
-  if (action === 'edit') {
-    openForm(id);
-    return;
-  }
-
-  if (action === 'sold') {
-    if (!confirm('Markér denne motorcykel som solgt? Den fjernes fra hjemmesiden.')) return;
-    await patchSold(id, true);
-    return;
-  }
-
-  if (action === 'unsold') {
-    await patchSold(id, false);
-    return;
-  }
-
-  if (action === 'delete') {
-    if (!confirm('Er du sikker på, at du vil slette denne motorcykel permanent? Det kan ikke fortrydes.')) return;
-    await deleteBike(id);
-  }
-});
-
-async function patchSold(id, sold) {
-  const res = await fetch(`/api/admin/products/${id}/sold`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({ sold }),
-  });
-  if (!res.ok) {
-    showToast('Kunne ikke opdatere status');
-    return;
-  }
-  showToast(sold ? 'Motorcykel markeret som solgt' : 'Motorcykel er tilgængelig igen');
-  loadBikes();
+function formatPrice(v) {
+  return v ? `${v},00 kr.` : '–';
 }
 
-async function deleteBike(id) {
-  const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE', credentials: 'same-origin' });
-  if (!res.ok) {
-    showToast('Kunne ikke slette motorcykel');
-    return;
-  }
-  showToast('Motorcykel slettet');
-  loadBikes();
-}
+// ---- Render ----
 
-// ---- Formular ----
-
-async function openForm(id = null) {
-  editingId = id;
-  formError.hidden = true;
-  formSuccess.hidden = true;
-  bikeForm.reset();
-  formImages = [];
-  mainImage = '';
-
-  if (id) {
-    formTitle.textContent = 'Rediger motorcykel';
-    document.getElementById('bikeId').value = id;
-
-    const res = await fetch(`/api/admin/products/${id}`, { credentials: 'same-origin' });
-    if (!res.ok) {
-      showToast('Kunne ikke hente motorcykel');
-      return;
-    }
-
-    const bike = await res.json();
-    document.getElementById('title').value = bike.title;
-    document.getElementById('price').value = bike.price;
-    document.getElementById('downPayment').value = bike.downPayment || '';
-    document.getElementById('monthly').value = bike.monthly || '';
-    document.getElementById('note').value = bike.note || '';
-    fillSpecFields(bike.description);
-    syncImagesFromProduct(bike);
+function render() {
+  const app = document.getElementById('app');
+  if (state.view === 'list') {
+    app.innerHTML = renderList();
+    bindListEvents();
   } else {
-    formTitle.textContent = 'Ny motorcykel';
-    document.getElementById('bikeId').value = '';
-    renderSpecFieldGrid();
-    renderSpecRows([]);
+    app.innerHTML = renderEditor();
+    bindEditorEvents();
   }
-
-  renderImageGrid();
-  showView('form');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function renderImageGrid() {
-  if (!formImages.length) {
-    imageGrid.innerHTML = '';
-    return;
-  }
+function renderShell(content) {
+  return `
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar__brand">
+          <p>Xtreme Machines</p>
+          <span>Admin</span>
+        </div>
+        <nav class="admin-nav">
+          <button type="button" class="admin-nav__btn${state.view === 'list' ? ' admin-nav__btn--active' : ''}" data-action="list">Motorcykler</button>
+          <button type="button" class="admin-nav__btn${state.view === 'edit' && !state.productId ? ' admin-nav__btn--active' : ''}" data-action="new">Ny motorcykel</button>
+        </nav>
+        <button type="button" class="admin-nav__btn" data-action="logout">Log ud</button>
+      </aside>
+      <main class="admin-main">${content}</main>
+    </div>
+  `;
+}
 
-  imageGrid.innerHTML = formImages.map(url => {
-    const src = imageSrc(url);
-    const isMain = url === mainImage || src === imageSrc(mainImage);
-    return `
-      <div class="image-item${isMain ? ' image-item--main' : ''}" data-url="${escapeAttr(url)}">
-        <img src="${escapeAttr(src)}" alt="" loading="lazy">
-        ${isMain ? '<span class="image-item__badge">Hovedbillede</span>' : ''}
-        <button type="button" class="image-item__remove" data-remove="${escapeAttr(url)}" aria-label="Fjern billede">×</button>
+function renderList() {
+  const q = state.search || '';
+  const filtered = q
+    ? state.bikes.filter(b =>
+        b.title.toLowerCase().includes(q.toLowerCase()) ||
+        (b.description || '').toLowerCase().includes(q.toLowerCase())
+      )
+    : state.bikes;
+
+  const rows = filtered.map(b => `
+    <article class="bike-row">
+      <img class="bike-row__thumb" src="${esc(imageSrc(b.image))}" alt="" loading="lazy">
+      <div class="bike-row__info">
+        <p class="bike-row__title">${esc(b.title)}</p>
+        <p class="bike-row__meta">${formatPrice(b.price)} · ${b.images?.length || 0} billeder</p>
       </div>
-    `;
-  }).join('');
+      <span class="badge badge--${b.status === 'sold' ? 'sold' : b.status === 'draft' ? 'draft' : 'available'}">
+        ${b.status === 'sold' ? 'Solgt' : b.status === 'draft' ? 'Kladde' : 'Til salg'}
+      </span>
+      <div class="bike-row__actions">
+        <button type="button" class="btn btn--ghost btn--small" data-edit="${esc(b.id)}">Rediger</button>
+        ${b.status === 'sold'
+          ? `<button type="button" class="btn btn--ghost btn--small" data-unsold="${esc(b.id)}">Gør tilgængelig</button>`
+          : `<button type="button" class="btn btn--ghost btn--small" data-sold="${esc(b.id)}">Markér solgt</button>`
+        }
+        <button type="button" class="btn btn--danger btn--small" data-delete="${esc(b.id)}">Slet</button>
+      </div>
+    </article>
+  `).join('');
+
+  return renderShell(`
+    <div class="list-header">
+      <div>
+        <h1>Motorcykler</h1>
+        <p class="list-header__sub">${state.bikes.length} i alt</p>
+      </div>
+      <button type="button" class="btn btn--primary" data-action="new">+ Ny motorcykel</button>
+    </div>
+    <input type="search" class="list-search" id="searchInput" placeholder="Søg efter model eller specifikation…" value="${esc(q)}">
+    ${filtered.length ? `<div class="bike-list">${rows}</div>` : '<p style="color:var(--silver-muted)">Ingen motorcykler fundet.</p>'}
+  `);
 }
 
-imageGrid.addEventListener('click', e => {
-  const removeBtn = e.target.closest('[data-remove]');
-  if (removeBtn) {
-    e.stopPropagation();
-    const url = removeBtn.dataset.remove;
-    formImages = formImages.filter(u => u !== url);
-    if (mainImage === url) mainImage = formImages[0] || '';
-    renderImageGrid();
-    return;
-  }
+function renderEditor() {
+  const mainImg = state.images.find(i => i.main) || state.images[0];
+  const previewSpecs = getPreviewSpecs();
 
-  const item = e.target.closest('.image-item');
-  if (item) {
-    mainImage = item.dataset.url;
-    renderImageGrid();
-  }
-});
+  return renderShell(`
+    <button type="button" class="editor-back" data-action="list">← Tilbage til liste</button>
 
-// ---- Specifikationsfelter ----
+    <div class="editor-grid">
+      <div class="editor-gallery">
+        <div class="editor-gallery__main">
+          ${mainImg
+            ? `<img src="${esc(imageSrc(mainImg.url))}" alt="Hovedbillede">`
+            : `<div class="editor-gallery__empty"><span>Ingen billeder endnu</span><span>Upload nedenfor</span></div>`
+          }
+        </div>
 
-document.getElementById('addSpecBtn').addEventListener('click', () => {
-  const extras = [...specRows.querySelectorAll('.spec-row input')]
-    .map(input => input.value.trim());
-  renderSpecRows([...extras, '']);
-});
+        ${state.images.length ? `
+        <div class="editor-gallery__thumbs" id="thumbGrid">
+          ${state.images.map((img, i) => `
+            <div class="editor-thumb${img.main ? ' editor-thumb--main' : ''}"
+                 draggable="true" data-idx="${i}">
+              <img src="${esc(imageSrc(img.url))}" alt="">
+              ${img.main ? '<span class="editor-thumb__badge">Hovedbillede</span>' : ''}
+              <div class="editor-thumb__actions">
+                ${!img.main ? `<button type="button" class="editor-thumb__btn" data-set-main="${i}" title="Sæt som hovedbillede">★</button>` : ''}
+                <button type="button" class="editor-thumb__btn" data-remove-img="${i}" title="Fjern">×</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <p style="font-size:0.75rem;color:var(--silver-muted);margin-top:8px">Træk billeder for at ændre rækkefølge · Klik ★ for hovedbillede</p>
+        ` : ''}
 
-specFieldGrid.addEventListener('input', updateSpecPreview);
-specFieldGrid.addEventListener('change', updateSpecPreview);
+        <div class="upload-zone${state.uploading ? ' upload-zone--uploading' : ''}" id="uploadZone">
+          <p>Træk billeder hertil eller klik for at vælge</p>
+          <span>Du kan vælge mange billeder på én gang</span>
+          ${state.uploadProgress ? `<p class="upload-progress">${esc(state.uploadProgress)}</p>` : ''}
+          <input type="file" id="fileInput" accept="image/*" multiple hidden>
+        </div>
+      </div>
 
-specRows.addEventListener('input', updateSpecPreview);
-specRows.addEventListener('click', e => {
-  const btn = e.target.closest('[data-remove-spec]');
-  if (!btn) return;
-  const extras = [...specRows.querySelectorAll('.spec-row input')]
-    .map(input => input.value.trim());
-  const row = btn.closest('.spec-row');
-  const index = [...specRows.querySelectorAll('.spec-row')].indexOf(row);
-  extras.splice(index, 1);
-  renderSpecRows(extras);
-});
+      <div class="editor-info">
+        <p class="editor-info__eyebrow">Til salg</p>
+        <input type="text" class="editor-info__title" id="titleInput" value="${esc(state.title)}" placeholder="Titel / model">
 
-['specCc', 'specGears', 'specKm'].forEach(id => {
-  document.getElementById(id).addEventListener('input', updateSpecPreview);
-});
+        <div class="editor-pricing">
+          <div class="editor-price-row">
+            <label for="priceInput">Pris</label>
+            <input type="text" id="priceInput" inputmode="numeric" value="${esc(state.price)}" placeholder="239.900">
+          </div>
+          <div class="editor-price-row">
+            <label for="downInput">Udbetaling</label>
+            <input type="text" id="downInput" inputmode="numeric" value="${esc(state.downPayment)}" placeholder="48.480">
+          </div>
+          <div class="editor-price-row">
+            <label for="monthlyInput">Månedlig ydelse</label>
+            <input type="text" id="monthlyInput" inputmode="numeric" value="${esc(state.monthly)}" placeholder="2.317">
+          </div>
+          <input type="text" class="editor-note" id="noteInput" value="${esc(state.note)}" placeholder="Note (fx Uden afgift)">
+        </div>
 
-// ---- Drag & drop upload ----
+        <div class="editor-specs">
+          <h2 class="editor-specs__title">Specifikationer</h2>
+          <div class="editor-specs__core">
+            <div>
+              <label for="ccInput">CC</label>
+              <input type="text" id="ccInput" inputmode="numeric" value="${esc(state.cc)}" placeholder="1745">
+            </div>
+            <div>
+              <label for="gearsInput">Gear</label>
+              <input type="text" id="gearsInput" inputmode="numeric" value="${esc(state.gears)}" placeholder="6">
+            </div>
+            <div>
+              <label for="kmInput">KM</label>
+              <input type="text" id="kmInput" inputmode="numeric" value="${esc(state.km)}" placeholder="30.141">
+            </div>
+          </div>
 
-async function compressImageFile(file) {
-  if (!file.type.startsWith('image/')) {
-    throw new Error('Kun billedfiler er tilladt');
-  }
+          <div class="spec-lines" id="specLines">
+            ${state.specLines.map((line, i) => `
+              <div class="spec-line" data-spec-idx="${i}">
+                <span class="spec-line__drag">⠿</span>
+                <input type="text" data-spec-input="${i}" value="${esc(line)}" placeholder="Fx ABS, CRUISE CONTROL, SYNET…">
+                <button type="button" class="spec-line__remove" data-remove-spec="${i}">×</button>
+              </div>
+            `).join('')}
+          </div>
+          <button type="button" class="btn btn--ghost btn--small" id="addSpecBtn">+ Tilføj specifikationslinje</button>
 
-  const bitmap = await createImageBitmap(file);
-  const max = 1600;
-  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
+          ${previewSpecs.length ? `
+          <div class="spec-preview">
+            <p class="spec-preview__label">Forhåndsvisning (som på hjemmesiden)</p>
+            <ul class="spec-preview__list">
+              ${previewSpecs.map(s => `<li>${esc(s)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+        </div>
 
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
+        ${state.message.text ? `<p class="form-${state.message.type === 'error' ? 'error' : 'success'}">${esc(state.message.text)}</p>` : ''}
 
-  const blob = await new Promise((resolve, reject) => {
-    canvas.toBlob(result => {
-      if (result) resolve(result);
-      else reject(new Error('Kunne ikke komprimere billede'));
-    }, 'image/jpeg', 0.85);
+        <div class="editor-actions">
+          <button type="button" class="btn btn--primary" id="saveBtn" ${state.saving ? 'disabled' : ''}>
+            ${state.saving ? 'Gemmer…' : 'Gem motorcykel'}
+          </button>
+          <button type="button" class="btn btn--ghost" data-action="list">Annuller</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+// ---- Event binding ----
+
+function bindShellEvents() {
+  document.querySelector('[data-action="list"]')?.addEventListener('click', () => {
+    state.view = 'list';
+    render();
+  });
+  document.querySelector('[data-action="new"]')?.addEventListener('click', () => openEditor(null));
+  document.querySelector('[data-action="logout"]')?.addEventListener('click', async () => {
+    await api('/api/admin/logout', { method: 'POST' });
+    window.location.href = '/admin/';
+  });
+}
+
+function bindListEvents() {
+  bindShellEvents();
+
+  document.querySelector('[data-action="new"]')?.addEventListener('click', () => openEditor(null));
+  document.getElementById('searchInput')?.addEventListener('input', e => {
+    state.search = e.target.value;
+    render();
   });
 
-  const baseName = file.name.replace(/\.[^.]+$/, '') || 'billede';
-  return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
-}
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result || '';
-      const base64 = String(result).split(',')[1];
-      if (!base64) reject(new Error('Kunne ikke læse billede'));
-      else resolve(base64);
-    };
-    reader.onerror = () => reject(new Error('Kunne ikke læse billede'));
-    reader.readAsDataURL(file);
+  document.querySelectorAll('[data-edit]').forEach(btn => {
+    btn.addEventListener('click', () => openEditor(btn.dataset.edit));
+  });
+  document.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', () => deleteBike(btn.dataset.delete));
+  });
+  document.querySelectorAll('[data-sold]').forEach(btn => {
+    btn.addEventListener('click', () => toggleSold(btn.dataset.sold, true));
+  });
+  document.querySelectorAll('[data-unsold]').forEach(btn => {
+    btn.addEventListener('click', () => toggleSold(btn.dataset.unsold, false));
   });
 }
 
-async function uploadSingleImage(productId, file) {
-  const compressed = await compressImageFile(file);
-  const data = await fileToBase64(compressed);
+function bindEditorEvents() {
+  bindShellEvents();
 
-  const res = await fetch(`/api/admin/products/${productId}/images`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({
-      images: [{ name: compressed.name, data }],
-    }),
-  });
+  document.getElementById('titleInput')?.addEventListener('input', e => { state.title = e.target.value; });
+  document.getElementById('priceInput')?.addEventListener('input', e => { state.price = e.target.value; });
+  document.getElementById('downInput')?.addEventListener('input', e => { state.downPayment = e.target.value; });
+  document.getElementById('monthlyInput')?.addEventListener('input', e => { state.monthly = e.target.value; });
+  document.getElementById('noteInput')?.addEventListener('input', e => { state.note = e.target.value; });
+  document.getElementById('ccInput')?.addEventListener('input', e => { state.cc = e.target.value; renderEditorFields(); });
+  document.getElementById('gearsInput')?.addEventListener('input', e => { state.gears = e.target.value; renderEditorFields(); });
+  document.getElementById('kmInput')?.addEventListener('input', e => { state.km = e.target.value; renderEditorFields(); });
 
-  const payload = await res.json();
-  if (!res.ok) throw new Error(payload.error || 'Upload fejlede');
-  return payload;
-}
-
-dropZone.addEventListener('click', () => fileInput.click());
-
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.classList.add('drop-zone--active');
-});
-
-dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drop-zone--active');
-});
-
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('drop-zone--active');
-  if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
-});
-
-fileInput.addEventListener('change', e => {
-  if (e.target.files.length) uploadFiles(e.target.files);
-  e.target.value = '';
-});
-
-async function uploadFiles(fileList) {
-  formError.hidden = true;
-
-  let productId = editingId;
-  if (!productId) {
-    productId = await createDraftForUpload();
-    if (!productId) return;
-    editingId = productId;
-    document.getElementById('bikeId').value = productId;
-  }
-
-  pendingUploads++;
-  document.getElementById('saveBtn').disabled = true;
-  dropZone.classList.add('drop-zone--uploading');
-
-  let uploadedCount = 0;
-
-  try {
-    for (const file of fileList) {
-      const payload = await uploadSingleImage(productId, file);
-      if (payload.product) {
-        syncImagesFromProduct(payload.product);
-      } else if (payload.urls?.length) {
-        formImages.push(...payload.urls);
-        if (!mainImage) mainImage = formImages[0];
-      }
-      uploadedCount += payload.urls?.length || 1;
-    }
-
-    renderImageGrid();
-    showToast(`${uploadedCount} billede${uploadedCount !== 1 ? 'r' : ''} uploadet`);
-  } catch (err) {
-    formError.textContent = err.message;
-    formError.hidden = false;
-  } finally {
-    pendingUploads--;
-    dropZone.classList.remove('drop-zone--uploading');
-    document.getElementById('saveBtn').disabled = pendingUploads > 0;
-  }
-}
-
-function getFormPayload() {
-  const specValues = getSpecValues();
-  const description = buildDescription(specValues);
-
-  return {
-    title: document.getElementById('title').value.trim(),
-    cc: specValues.cc,
-    gears: specValues.gears,
-    km: specValues.km,
-    specs: specValues.specs,
-    description,
-    price: document.getElementById('price').value.trim(),
-    downPayment: document.getElementById('downPayment').value.trim() || null,
-    monthly: document.getElementById('monthly').value.trim() || null,
-    note: document.getElementById('note').value.trim() || null,
-    images: formImages,
-    image: mainImage || formImages[0],
-  };
-}
-
-async function createDraftForUpload() {
-  const payload = getFormPayload();
-  if (!payload.description) {
-    payload.description = 'Udfyld specifikationer';
-    payload.cc = '';
-    payload.gears = '';
-    payload.km = '';
-    payload.specs = [];
-  }
-
-  const res = await fetch('/api/admin/products/draft', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({
-      title: payload.title || 'Ny motorcykel',
-      cc: payload.cc,
-      gears: payload.gears,
-      km: payload.km,
-      specs: payload.specs,
-      description: payload.description,
-      price: payload.price || '0',
-      downPayment: payload.downPayment,
-      monthly: payload.monthly,
-      note: payload.note,
-    }),
-  });
-
-  if (!res.ok) {
-    const data = await res.json();
-    formError.textContent = data.error || 'Kunne ikke oprette kladde';
-    formError.hidden = false;
-    return null;
-  }
-
-  const product = await res.json();
-  await loadBikes();
-  return product.id;
-}
-
-// ---- Gem ----
-
-bikeForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  formError.hidden = true;
-  formSuccess.hidden = true;
-
-  const payload = getFormPayload();
-
-  if (!payload.description) {
-    formError.textContent = 'Udfyld mindst én specifikation (CC, gear, km eller øvrige felter)';
-    formError.hidden = false;
-    return;
-  }
-
-  if (!formImages.length) {
-    formError.textContent = 'Upload mindst ét billede';
-    formError.hidden = false;
-    return;
-  }
-
-  const saveBtn = document.getElementById('saveBtn');
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Gemmer…';
-
-  try {
-    const id = document.getElementById('bikeId').value;
-    const url = id ? `/api/admin/products/${id}` : '/api/admin/products';
-    const method = id ? 'PUT' : 'POST';
-
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(payload),
+  document.querySelectorAll('[data-spec-input]').forEach(input => {
+    input.addEventListener('input', e => {
+      state.specLines[+e.target.dataset.specInput] = e.target.value;
+      renderEditorFields();
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Kunne ikke gemme');
-
-    syncImagesFromProduct(data);
-    renderImageGrid();
-
-    formSuccess.textContent = 'Motorcykel gemt – den vises nu på hjemmesiden';
-    formSuccess.hidden = false;
-    editingId = data.id;
-    document.getElementById('bikeId').value = data.id;
-    showToast('Gemt!');
-    await loadBikes();
-
-    setTimeout(() => {
-      showView('list');
-    }, 1200);
-  } catch (err) {
-    formError.textContent = err.message;
-    formError.hidden = false;
-  } finally {
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Gem motorcykel';
-  }
-});
-
-// ---- Navigation events ----
-
-document.querySelectorAll('[data-view]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (btn.dataset.view === 'form' && btn.dataset.new) {
-      openForm(null);
-    } else if (btn.dataset.view === 'list') {
-      showView('list');
-    }
   });
-});
 
-document.getElementById('newBikeBtn').addEventListener('click', () => openForm(null));
-document.getElementById('backToListBtn').addEventListener('click', () => showView('list'));
-document.getElementById('cancelFormBtn').addEventListener('click', () => showView('list'));
+  document.querySelectorAll('[data-remove-spec]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.specLines.splice(+btn.dataset.removeSpec, 1);
+      if (!state.specLines.length) state.specLines = [''];
+      render();
+    });
+  });
 
-document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
-  window.location.href = '/admin/';
-});
+  document.getElementById('addSpecBtn')?.addEventListener('click', () => {
+    state.specLines.push('');
+    render();
+  });
+
+  document.getElementById('saveBtn')?.addEventListener('click', saveProduct);
+
+  document.querySelectorAll('[data-set-main]').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); setMainImage(+btn.dataset.setMain); });
+  });
+
+  document.querySelectorAll('[data-remove-img]').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); removeImage(+btn.dataset.removeImg); });
+  });
+
+  bindThumbDrag();
+  bindUploadZone();
+}
+
+function renderEditorFields() {
+  const specs = getPreviewSpecs();
+  let preview = document.querySelector('.spec-preview');
+
+  if (!specs.length) {
+    preview?.remove();
+    return;
+  }
+
+  const listHtml = specs.map(s => `<li>${esc(s)}</li>`).join('');
+
+  if (preview) {
+    const list = preview.querySelector('.spec-preview__list');
+    if (list) list.innerHTML = listHtml;
+    return;
+  }
+
+  document.getElementById('addSpecBtn')?.insertAdjacentHTML('afterend', `
+    <div class="spec-preview">
+      <p class="spec-preview__label">Forhåndsvisning (som på hjemmesiden)</p>
+      <ul class="spec-preview__list">${listHtml}</ul>
+    </div>`);
+}
+
+function bindThumbDrag() {
+  const grid = document.getElementById('thumbGrid');
+  if (!grid) return;
+
+  grid.querySelectorAll('.editor-thumb').forEach(thumb => {
+    thumb.addEventListener('dragstart', e => {
+      state.dragImageIdx = +thumb.dataset.idx;
+      thumb.classList.add('editor-thumb--dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    thumb.addEventListener('dragend', () => {
+      state.dragImageIdx = null;
+      grid.querySelectorAll('.editor-thumb').forEach(t => t.classList.remove('editor-thumb--dragging', 'editor-thumb--over'));
+    });
+    thumb.addEventListener('dragover', e => {
+      e.preventDefault();
+      thumb.classList.add('editor-thumb--over');
+    });
+    thumb.addEventListener('dragleave', () => thumb.classList.remove('editor-thumb--over'));
+    thumb.addEventListener('drop', e => {
+      e.preventDefault();
+      thumb.classList.remove('editor-thumb--over');
+      const to = +thumb.dataset.idx;
+      if (state.dragImageIdx !== null) moveImage(state.dragImageIdx, to);
+    });
+  });
+}
+
+function bindUploadZone() {
+  const zone = document.getElementById('uploadZone');
+  const input = document.getElementById('fileInput');
+  if (!zone || !input) return;
+
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('upload-zone--active'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('upload-zone--active'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('upload-zone--active');
+    if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+  });
+  input.addEventListener('change', e => {
+    if (e.target.files.length) uploadFiles(e.target.files);
+    e.target.value = '';
+  });
+}
 
 // ---- Init ----
 
-(async () => {
-  if (await checkAuth()) {
+async function init() {
+  try {
+    const me = await api('/api/admin/me');
+    if (!me.loggedIn) {
+      window.location.href = '/admin/';
+      return;
+    }
     await loadBikes();
-    showView('list');
+    render();
+  } catch {
+    window.location.href = '/admin/';
   }
-})();
+}
+
+init();

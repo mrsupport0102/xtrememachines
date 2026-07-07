@@ -365,6 +365,52 @@ function createApp({ serveStatic = true } = {}) {
     return [];
   }
 
+  app.delete('/api/admin/products/:id/images', requireAuth, async (req, res) => {
+    try {
+      const productId = req.params.id;
+      const url = String(req.body?.url || '').trim();
+      if (!url) return res.status(400).json({ error: 'Billede-URL mangler' });
+
+      const baseUrl = getSiteBaseUrl(req);
+      const relUrl = normalizeStoredImages([url], url, baseUrl).image;
+
+      const products = await readAndMigrateProducts();
+      const index = products.findIndex(p => p.id === productId);
+      if (index === -1) return res.status(404).json({ error: 'Motorcykel ikke fundet' });
+
+      const product = products[index];
+      const images = (product.images || []).filter(img => {
+        const rel = normalizeStoredImages([img], img, baseUrl).image;
+        return rel !== relUrl;
+      });
+
+      let image = product.image;
+      const mainRel = normalizeStoredImages([product.image], product.image, baseUrl).image;
+      if (mainRel === relUrl) {
+        image = images[0] || '';
+      }
+
+      const updated = {
+        ...product,
+        images,
+        image,
+        updatedAt: new Date().toISOString(),
+      };
+      products[index] = updated;
+
+      if (typeof storage.deleteImage === 'function') {
+        const filename = relUrl.split('/').pop();
+        if (filename) await storage.deleteImage(productId, filename);
+      }
+
+      await saveProductRecord(products, updated);
+      respondProduct(res, req, updated);
+    } catch (err) {
+      console.error('Slet billede fejlede:', err.message);
+      res.status(400).json({ error: err.message || 'Kunne ikke slette billede' });
+    }
+  });
+
   app.post('/api/admin/products/:id/images', requireAuth, (req, res, next) => {
     if (req.is('multipart/form-data')) {
       return upload.array('images', 20)(req, res, next);

@@ -121,9 +121,11 @@ function sanitizeSpecsInput(body) {
   const cc = body.cc != null ? String(body.cc).trim() : '';
   const gears = body.gears != null ? String(body.gears).trim() : '';
   const km = body.km != null ? String(body.km).trim() : '';
-  const specs = Array.isArray(body.specs)
-    ? body.specs.map(s => String(s || '').trim()).filter(Boolean)
-    : [];
+  const specs = Array.isArray(body.specLines)
+    ? body.specLines.map(s => String(s || '').trim()).filter(Boolean)
+    : Array.isArray(body.specs)
+      ? body.specs.map(s => String(s || '').trim()).filter(Boolean)
+      : [];
 
   const built = buildDescription({ cc, gears, km, specs });
   const description = built || String(body.description || '').trim();

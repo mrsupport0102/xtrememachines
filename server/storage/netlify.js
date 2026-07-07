@@ -182,6 +182,15 @@ function createNetlifyStorage({ repoDataFile }) {
     return null;
   }
 
+  async function deleteImage(productId, filename) {
+    try {
+      const { imagesStore } = getStores();
+      await imagesStore.delete(`${productId}/${filename}`);
+    } catch (err) {
+      console.error('Netlify Blobs deleteImage fejlede:', err.message);
+    }
+  }
+
   function initStorage() {}
 
   return {
@@ -191,6 +200,7 @@ function createNetlifyStorage({ repoDataFile }) {
     writeProduct,
     saveImage,
     deleteProductImages,
+    deleteImage,
     getImage,
   };
 }

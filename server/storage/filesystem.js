@@ -62,12 +62,21 @@ function createFilesystemStorage({ storageRoot, repoDataFile }) {
     return fs.readFileSync(filepath);
   }
 
+  async function deleteImage(productId, filename) {
+    initStorage();
+    const filepath = path.join(bikesDir, productId, filename);
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
+    }
+  }
+
   return {
     initStorage,
     readProducts,
     writeProducts,
     saveImage,
     deleteProductImages,
+    deleteImage,
     getImage,
   };
 }
