@@ -21,6 +21,114 @@ const formSuccess = document.getElementById('formSuccess');
 const imageGrid = document.getElementById('imageGrid');
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
+const specRows = document.getElementById('specRows');
+const specPreview = document.getElementById('specPreview');
+
+// ---- Specifikationer (matcher server/productUtils.js) ----
+
+function buildDescription({ cc, gears, km, specs = [] }) {
+  const parts = [];
+
+  if (cc) parts.push(`${String(cc).trim()} CC`);
+  if (gears) parts.push(`${String(gears).trim()} GEAR`);
+  if (km) parts.push(`KM. ${String(km).trim().replace(/\./g, '')}`);
+
+  specs
+    .map(s => String(s || '').trim())
+    .filter(Boolean)
+    .forEach(spec => parts.push(spec.toUpperCase()));
+
+  if (!parts.length) return '';
+  return `${parts.join(' - ')}.`;
+}
+
+function parseDescription(description = '') {
+  const parts = String(description)
+    .split(' - ')
+    .map(s => s.trim().replace(/\.$/, ''))
+    .filter(Boolean);
+
+  let cc = '';
+  let gears = '';
+  let km = '';
+  const specs = [];
+
+  for (const part of parts) {
+    const ccMatch = part.match(/^(\d+)\s*CC$/i);
+    if (ccMatch) {
+      cc = ccMatch[1];
+      continue;
+    }
+
+    const gearMatch = part.match(/^(\d+)\s*GEAR$/i);
+    if (gearMatch) {
+      gears = gearMatch[1];
+      continue;
+    }
+
+    const kmMatch = part.match(/^KM\.?\s*(.+)$/i);
+    if (kmMatch) {
+      km = kmMatch[1].replace(/\./g, '').trim();
+      continue;
+    }
+
+    specs.push(part);
+  }
+
+  return { cc, gears, km, specs };
+}
+
+function getSpecValues() {
+  const cc = document.getElementById('specCc').value.trim();
+  const gears = document.getElementById('specGears').value.trim();
+  const km = document.getElementById('specKm').value.trim();
+  const specs = [...specRows.querySelectorAll('.spec-row input')]
+    .map(input => input.value.trim())
+    .filter(Boolean);
+
+  return { cc, gears, km, specs };
+}
+
+function updateSpecPreview() {
+  const values = getSpecValues();
+  const built = buildDescription(values);
+  specPreview.textContent = built || '–';
+}
+
+function renderSpecRows(specs = ['']) {
+  const rows = specs.length ? specs : [''];
+  specRows.innerHTML = rows.map((value, index) => `
+    <div class="spec-row">
+      <input type="text" class="spec-row__input" value="${escapeAttr(value)}" placeholder="Fx ABS, CRUISE CONTROL, SYNET…">
+      ${rows.length > 1 || index > 0
+        ? `<button type="button" class="spec-row__remove" data-remove-spec aria-label="Fjern specifikation">×</button>`
+        : ''}
+    </div>
+  `).join('');
+  updateSpecPreview();
+}
+
+function fillSpecFields(description) {
+  const parsed = parseDescription(description);
+  document.getElementById('specCc').value = parsed.cc;
+  document.getElementById('specGears').value = parsed.gears;
+  document.getElementById('specKm').value = parsed.km
+    ? parsed.km.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    : '';
+  renderSpecRows(parsed.specs.length ? parsed.specs : ['']);
+}
+
+function imageSrc(url) {
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  return url.startsWith('/') ? url : `/${url}`;
+}
+
+function syncImagesFromProduct(product) {
+  if (!product) return;
+  formImages = [...(product.images || [])];
+  mainImage = product.image || formImages[0] || '';
+}
 
 // ---- Auth check ----
 
@@ -80,7 +188,7 @@ function renderList(bikes) {
   listEmpty.hidden = bikes.length > 0;
   bikeList.innerHTML = bikes.map(b => `
     <article class="bike-row" data-id="${b.id}">
-      <img class="bike-row__thumb" src="${b.image}" alt="" loading="lazy">
+      <img class="bike-row__thumb" src="${escapeAttr(imageSrc(b.image))}" alt="" loading="lazy">
       <div class="bike-row__info">
         <p class="bike-row__title">${escapeHtml(b.title)}</p>
         <p class="bike-row__meta">${formatListPrice(b.price)} · ${b.images?.length || 0} billeder</p>
@@ -106,6 +214,10 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str);
 }
 
 listSearch.addEventListener('input', e => {
@@ -174,7 +286,7 @@ async function deleteBike(id) {
 
 // ---- Formular ----
 
-function openForm(id = null) {
+async function openForm(id = null) {
   editingId = id;
   formError.hidden = true;
   formSuccess.hidden = true;
@@ -183,21 +295,27 @@ function openForm(id = null) {
   mainImage = '';
 
   if (id) {
-    const bike = allBikes.find(b => b.id === id);
-    if (!bike) return;
     formTitle.textContent = 'Rediger motorcykel';
     document.getElementById('bikeId').value = id;
+
+    const res = await fetch(`/api/admin/products/${id}`, { credentials: 'same-origin' });
+    if (!res.ok) {
+      showToast('Kunne ikke hente motorcykel');
+      return;
+    }
+
+    const bike = await res.json();
     document.getElementById('title').value = bike.title;
-    document.getElementById('description').value = bike.description;
     document.getElementById('price').value = bike.price;
     document.getElementById('downPayment').value = bike.downPayment || '';
     document.getElementById('monthly').value = bike.monthly || '';
     document.getElementById('note').value = bike.note || '';
-    formImages = [...(bike.images || [])];
-    mainImage = bike.image || formImages[0] || '';
+    fillSpecFields(bike.description);
+    syncImagesFromProduct(bike);
   } else {
     formTitle.textContent = 'Ny motorcykel';
     document.getElementById('bikeId').value = '';
+    renderSpecRows(['']);
   }
 
   renderImageGrid();
@@ -206,13 +324,22 @@ function openForm(id = null) {
 }
 
 function renderImageGrid() {
-  imageGrid.innerHTML = formImages.map(url => `
-    <div class="image-item${url === mainImage ? ' image-item--main' : ''}" data-url="${url}">
-      <img src="${url}" alt="">
-      ${url === mainImage ? '<span class="image-item__badge">Hovedbillede</span>' : ''}
-      <button type="button" class="image-item__remove" data-remove="${url}" aria-label="Fjern billede">×</button>
-    </div>
-  `).join('');
+  if (!formImages.length) {
+    imageGrid.innerHTML = '';
+    return;
+  }
+
+  imageGrid.innerHTML = formImages.map(url => {
+    const src = imageSrc(url);
+    const isMain = url === mainImage || src === imageSrc(mainImage);
+    return `
+      <div class="image-item${isMain ? ' image-item--main' : ''}" data-url="${escapeAttr(url)}">
+        <img src="${escapeAttr(src)}" alt="" loading="lazy">
+        ${isMain ? '<span class="image-item__badge">Hovedbillede</span>' : ''}
+        <button type="button" class="image-item__remove" data-remove="${escapeAttr(url)}" aria-label="Fjern billede">×</button>
+      </div>
+    `;
+  }).join('');
 }
 
 imageGrid.addEventListener('click', e => {
@@ -231,6 +358,28 @@ imageGrid.addEventListener('click', e => {
     mainImage = item.dataset.url;
     renderImageGrid();
   }
+});
+
+// ---- Specifikationsfelter ----
+
+document.getElementById('addSpecBtn').addEventListener('click', () => {
+  const values = getSpecValues();
+  renderSpecRows([...values.specs, '']);
+});
+
+specRows.addEventListener('input', updateSpecPreview);
+specRows.addEventListener('click', e => {
+  const btn = e.target.closest('[data-remove-spec]');
+  if (!btn) return;
+  const values = getSpecValues();
+  const row = btn.closest('.spec-row');
+  const index = [...specRows.querySelectorAll('.spec-row')].indexOf(row);
+  values.specs.splice(index, 1);
+  renderSpecRows(values.specs.length ? values.specs : ['']);
+});
+
+['specCc', 'specGears', 'specKm'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateSpecPreview);
 });
 
 // ---- Drag & drop upload ----
@@ -292,7 +441,7 @@ async function uploadSingleImage(productId, file) {
 
   const payload = await res.json();
   if (!res.ok) throw new Error(payload.error || 'Upload fejlede');
-  return payload.urls || [];
+  return payload;
 }
 
 dropZone.addEventListener('click', () => fileInput.click());
@@ -330,17 +479,22 @@ async function uploadFiles(fileList) {
 
   pendingUploads++;
   document.getElementById('saveBtn').disabled = true;
+  dropZone.classList.add('drop-zone--uploading');
 
   let uploadedCount = 0;
 
   try {
     for (const file of fileList) {
-      const urls = await uploadSingleImage(productId, file);
-      formImages.push(...urls);
-      uploadedCount += urls.length;
+      const payload = await uploadSingleImage(productId, file);
+      if (payload.product) {
+        syncImagesFromProduct(payload.product);
+      } else if (payload.urls?.length) {
+        formImages.push(...payload.urls);
+        if (!mainImage) mainImage = formImages[0];
+      }
+      uploadedCount += payload.urls?.length || 1;
     }
 
-    if (!mainImage && formImages.length) mainImage = formImages[0];
     renderImageGrid();
     showToast(`${uploadedCount} billede${uploadedCount !== 1 ? 'r' : ''} uploadet`);
   } catch (err) {
@@ -348,22 +502,56 @@ async function uploadFiles(fileList) {
     formError.hidden = false;
   } finally {
     pendingUploads--;
+    dropZone.classList.remove('drop-zone--uploading');
     document.getElementById('saveBtn').disabled = pendingUploads > 0;
   }
 }
 
+function getFormPayload() {
+  const specValues = getSpecValues();
+  const description = buildDescription(specValues);
+
+  return {
+    title: document.getElementById('title').value.trim(),
+    cc: specValues.cc,
+    gears: specValues.gears,
+    km: specValues.km,
+    specs: specValues.specs,
+    description,
+    price: document.getElementById('price').value.trim(),
+    downPayment: document.getElementById('downPayment').value.trim() || null,
+    monthly: document.getElementById('monthly').value.trim() || null,
+    note: document.getElementById('note').value.trim() || null,
+    images: formImages,
+    image: mainImage || formImages[0],
+  };
+}
+
 async function createDraftForUpload() {
+  const payload = getFormPayload();
+  if (!payload.description) {
+    payload.description = 'Udfyld specifikationer';
+    payload.cc = '';
+    payload.gears = '';
+    payload.km = '';
+    payload.specs = [];
+  }
+
   const res = await fetch('/api/admin/products/draft', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     body: JSON.stringify({
-      title: document.getElementById('title').value.trim() || 'Ny motorcykel',
-      description: document.getElementById('description').value.trim() || 'Udfyld specifikationer',
-      price: document.getElementById('price').value.trim() || '0',
-      downPayment: document.getElementById('downPayment').value.trim() || null,
-      monthly: document.getElementById('monthly').value.trim() || null,
-      note: document.getElementById('note').value.trim() || null,
+      title: payload.title || 'Ny motorcykel',
+      cc: payload.cc,
+      gears: payload.gears,
+      km: payload.km,
+      specs: payload.specs,
+      description: payload.description,
+      price: payload.price || '0',
+      downPayment: payload.downPayment,
+      monthly: payload.monthly,
+      note: payload.note,
     }),
   });
 
@@ -386,22 +574,19 @@ bikeForm.addEventListener('submit', async e => {
   formError.hidden = true;
   formSuccess.hidden = true;
 
+  const payload = getFormPayload();
+
+  if (!payload.description) {
+    formError.textContent = 'Udfyld mindst én specifikation (CC, gear, km eller øvrige felter)';
+    formError.hidden = false;
+    return;
+  }
+
   if (!formImages.length) {
     formError.textContent = 'Upload mindst ét billede';
     formError.hidden = false;
     return;
   }
-
-  const payload = {
-    title: document.getElementById('title').value.trim(),
-    description: document.getElementById('description').value.trim(),
-    price: document.getElementById('price').value.trim(),
-    downPayment: document.getElementById('downPayment').value.trim() || null,
-    monthly: document.getElementById('monthly').value.trim() || null,
-    note: document.getElementById('note').value.trim() || null,
-    images: formImages,
-    image: mainImage || formImages[0],
-  };
 
   const saveBtn = document.getElementById('saveBtn');
   saveBtn.disabled = true;
@@ -420,6 +605,9 @@ bikeForm.addEventListener('submit', async e => {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Kunne ikke gemme');
+
+    syncImagesFromProduct(data);
+    renderImageGrid();
 
     formSuccess.textContent = 'Motorcykel gemt – den vises nu på hjemmesiden';
     formSuccess.hidden = false;

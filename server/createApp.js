@@ -10,6 +10,13 @@ const express = require('express');
 const multer = require('multer');
 const { createStorage } = require('./storage');
 const {
+  getSiteBaseUrl,
+  normalizeProduct,
+  normalizeProducts,
+  normalizeStoredImages,
+  sanitizeSpecsInput,
+} = require('./productUtils');
+const {
   isAuthenticated,
   setAuthCookie,
   clearAuthCookie,
@@ -92,23 +99,34 @@ function createApp({ serveStatic = true } = {}) {
     return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
 
-  function sanitizeProductInput(body) {
+  function sanitizeProductInput(body, req) {
+    const baseUrl = getSiteBaseUrl(req);
     const title = String(body.title || '').trim();
-    const description = String(body.description || '').trim();
+    const { description } = sanitizeSpecsInput(body);
     const price = normalizePrice(body.price);
     const downPayment = body.downPayment ? normalizePrice(body.downPayment) : null;
     const monthly = body.monthly ? normalizePrice(body.monthly) : null;
     const note = body.note ? String(body.note).trim() : null;
-    const images = Array.isArray(body.images) ? body.images.filter(Boolean) : [];
-    const image = body.image || images[0] || '';
+    const rawImages = Array.isArray(body.images) ? body.images.filter(Boolean) : [];
+    const { images, image } = normalizeStoredImages(rawImages, body.image || rawImages[0] || '', baseUrl);
 
     if (!title) throw new Error('Titel er påkrævet');
-    if (!description) throw new Error('Beskrivelse er påkrævet');
+    if (!description) throw new Error('Udfyld mindst én specifikation');
     if (!price) throw new Error('Pris er påkrævet');
     if (!images.length) throw new Error('Mindst ét billede er påkrævet');
     if (!image || !images.includes(image)) throw new Error('Hovedbillede skal være valgt');
 
     return { title, description, price, downPayment, monthly, note, images, image };
+  }
+
+  function respondProduct(res, req, product) {
+    const baseUrl = getSiteBaseUrl(req);
+    res.json(normalizeProduct(product, baseUrl));
+  }
+
+  function respondProducts(res, req, products) {
+    const baseUrl = getSiteBaseUrl(req);
+    res.json(normalizeProducts(products, baseUrl));
   }
 
   function getPublicProducts(products) {
@@ -128,10 +146,10 @@ function createApp({ serveStatic = true } = {}) {
 
   // ---- Public API ----
 
-  app.get('/api/products', async (_req, res) => {
+  app.get('/api/products', async (req, res) => {
     try {
       const products = await readAndMigrateProducts();
-      res.json(getPublicProducts(products));
+      respondProducts(res, req, getPublicProducts(products));
     } catch {
       res.status(500).json({ error: 'Kunne ikke hente motorcykler' });
     }
@@ -142,7 +160,7 @@ function createApp({ serveStatic = true } = {}) {
       const products = await readAndMigrateProducts();
       const product = products.find(p => p.id === req.params.id);
       if (!product || product.status === 'draft') return res.status(404).json({ error: 'Ikke fundet' });
-      res.json(product);
+      respondProduct(res, req, product);
     } catch {
       res.status(500).json({ error: 'Kunne ikke hente motorcykel' });
     }
@@ -152,8 +170,10 @@ function createApp({ serveStatic = true } = {}) {
     try {
       const data = await storage.getImage(req.params.productId, req.params.filename);
       if (!data) return res.status(404).end();
-      res.type('image/jpeg').send(Buffer.from(data));
-    } catch {
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      res.type('image/jpeg').send(data);
+    } catch (err) {
+      console.error('getImage fejlede:', err.message);
       res.status(404).end();
     }
   });
@@ -180,11 +200,11 @@ function createApp({ serveStatic = true } = {}) {
 
   // ---- Admin products ----
 
-  app.get('/api/admin/products', requireAuth, async (_req, res) => {
+  app.get('/api/admin/products', requireAuth, async (req, res) => {
     try {
       const products = await readAndMigrateProducts();
       products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      res.json(products);
+      respondProducts(res, req, products);
     } catch {
       res.status(500).json({ error: 'Kunne ikke hente motorcykler' });
     }
@@ -195,7 +215,7 @@ function createApp({ serveStatic = true } = {}) {
       const products = await readAndMigrateProducts();
       const product = products.find(p => p.id === req.params.id);
       if (!product) return res.status(404).json({ error: 'Ikke fundet' });
-      res.json(product);
+      respondProduct(res, req, product);
     } catch {
       res.status(500).json({ error: 'Kunne ikke hente motorcykel' });
     }
@@ -213,11 +233,15 @@ function createApp({ serveStatic = true } = {}) {
     try {
       const products = await readAndMigrateProducts();
       const title = String(req.body.title || 'Ny motorcykel').trim();
+      const { description } = sanitizeSpecsInput({
+        ...req.body,
+        description: req.body.description || 'Udfyld specifikationer',
+      });
       const now = new Date().toISOString();
       const product = {
         id: nextProductId(products),
         title,
-        description: String(req.body.description || 'Udfyld specifikationer').trim(),
+        description,
         price: normalizePrice(req.body.price) || '0',
         downPayment: req.body.downPayment ? normalizePrice(req.body.downPayment) : null,
         monthly: req.body.monthly ? normalizePrice(req.body.monthly) : null,
@@ -230,7 +254,7 @@ function createApp({ serveStatic = true } = {}) {
       };
       products.unshift(product);
       await saveProductRecord(products, product);
-      res.status(201).json(product);
+      respondProduct(res, req, product);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -239,7 +263,7 @@ function createApp({ serveStatic = true } = {}) {
   app.post('/api/admin/products', requireAuth, async (req, res) => {
     try {
       const products = await readAndMigrateProducts();
-      const data = sanitizeProductInput(req.body);
+      const data = sanitizeProductInput(req.body, req);
       const now = new Date().toISOString();
       const product = {
         id: nextProductId(products),
@@ -250,7 +274,7 @@ function createApp({ serveStatic = true } = {}) {
       };
       products.unshift(product);
       await saveProductRecord(products, product);
-      res.status(201).json(product);
+      respondProduct(res, req, product);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -262,7 +286,7 @@ function createApp({ serveStatic = true } = {}) {
       const index = products.findIndex(p => p.id === req.params.id);
       if (index === -1) return res.status(404).json({ error: 'Ikke fundet' });
 
-      const data = sanitizeProductInput(req.body);
+      const data = sanitizeProductInput(req.body, req);
       const existing = products[index];
       products[index] = {
         ...existing,
@@ -276,7 +300,7 @@ function createApp({ serveStatic = true } = {}) {
       if (products[index].status !== 'sold') delete products[index].badge;
 
       await saveProductRecord(products, products[index]);
-      res.json(products[index]);
+      respondProduct(res, req, products[index]);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
@@ -295,7 +319,7 @@ function createApp({ serveStatic = true } = {}) {
       products[index].updatedAt = new Date().toISOString();
 
       await saveProductRecord(products, products[index]);
-      res.json(products[index]);
+      respondProduct(res, req, products[index]);
     } catch {
       res.status(500).json({ error: 'Kunne ikke opdatere status' });
     }
@@ -380,7 +404,9 @@ function createApp({ serveStatic = true } = {}) {
         await storage.writeProducts(products);
       }
 
-      res.json({ urls });
+      const baseUrl = getSiteBaseUrl(req);
+      const absoluteUrls = urls.map(url => normalizeProduct({ image: url }, baseUrl).image);
+      res.json({ urls: absoluteUrls, product: normalizeProduct(updated, baseUrl) });
     } catch (err) {
       console.error('Billedupload fejlede:', err);
       res.status(400).json({ error: err.message || 'Upload fejlede' });

@@ -61,13 +61,40 @@
             <input type="text" id="title" placeholder="Fx 2018 FLSB Sport Glide Kess Tech" required>
             <p class="form-hint">Vises som overskrift på hjemmesiden</p>
           </div>
+        </div>
 
-          <div class="form-field form-field--full">
-            <label for="description">Beskrivelse / specifikationer *</label>
-            <textarea id="description" rows="6" placeholder="Skriv specifikationer adskilt med bindestreg, fx: 1745 CC - 6 GEAR - KM. 30.141 - ABS - …" required></textarea>
-            <p class="form-hint">Hver specifikation adskilles med " - " (mellemrum-bindestreg-mellemrum)</p>
+        <div class="form-section">
+          <h2>Specifikationer</h2>
+          <p class="form-hint">Udfyld felterne – de vises på samme måde som på de andre motorcykler på hjemmesiden</p>
+
+          <div class="spec-grid">
+            <div class="form-field">
+              <label for="specCc">Motor (CC)</label>
+              <input type="text" id="specCc" inputmode="numeric" placeholder="Fx 1745">
+            </div>
+            <div class="form-field">
+              <label for="specGears">Gear</label>
+              <input type="text" id="specGears" inputmode="numeric" placeholder="Fx 6">
+            </div>
+            <div class="form-field">
+              <label for="specKm">Kilometer</label>
+              <input type="text" id="specKm" inputmode="numeric" placeholder="Fx 30.141">
+            </div>
           </div>
 
+          <div class="form-field form-field--full">
+            <label>Øvrige specifikationer</label>
+            <div id="specRows" class="spec-rows"></div>
+            <button type="button" class="admin-btn admin-btn--ghost admin-btn--small" id="addSpecBtn">+ Tilføj specifikation</button>
+          </div>
+
+          <div class="spec-preview">
+            <span class="spec-preview__label">Forhåndsvisning på hjemmesiden:</span>
+            <p id="specPreview" class="spec-preview__text">–</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
           <div class="form-field">
             <label for="price">Pris (kr.) *</label>
             <input type="text" id="price" inputmode="numeric" placeholder="239.900" required>

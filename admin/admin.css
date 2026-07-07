@@ -457,6 +457,11 @@ body {
   background: rgba(227, 30, 36, 0.05);
 }
 
+.drop-zone--uploading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .drop-zone__inner svg {
   color: var(--admin-muted);
   margin-bottom: 12px;
@@ -550,6 +555,85 @@ body {
   font-size: 0.8rem;
 }
 
+/* ---- Specifikationer ---- */
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.spec-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.spec-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.spec-row input {
+  flex: 1;
+  padding: 12px 14px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  font-size: 0.95rem;
+}
+
+.spec-row input:focus {
+  outline: none;
+  border-color: var(--admin-red);
+}
+
+.spec-row__remove {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.spec-row__remove:hover {
+  color: #fca5a5;
+  border-color: rgba(227, 30, 36, 0.4);
+}
+
+.spec-preview {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+}
+
+.spec-preview__label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-muted);
+  margin-bottom: 6px;
+}
+
+.spec-preview__text {
+  font-size: 0.9rem;
+  color: var(--admin-text);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
 /* ---- Toast ---- */
 
 .toast {
@@ -604,6 +688,10 @@ body {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .spec-grid {
     grid-template-columns: 1fr;
   }
 

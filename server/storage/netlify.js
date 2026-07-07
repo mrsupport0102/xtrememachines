@@ -152,7 +152,9 @@ function createNetlifyStorage({ repoDataFile }) {
         console.warn('Sharp komprimering sprunget over:', err.message);
       }
 
-      await imagesStore.set(key, optimized);
+      await imagesStore.set(key, Buffer.from(optimized), {
+        metadata: { contentType: 'image/jpeg' },
+      });
       return `/assets/images/bikes/${productId}/${filename}`;
     } catch (err) {
       console.error('Netlify Blobs saveImage fejlede:', err.message);
@@ -172,7 +174,12 @@ function createNetlifyStorage({ repoDataFile }) {
 
   async function getImage(productId, filename) {
     const { imagesStore } = getStores();
-    return imagesStore.get(`${productId}/${filename}`, { type: 'arrayBuffer' });
+    const data = await imagesStore.get(`${productId}/${filename}`, { type: 'arrayBuffer' });
+    if (!data) return null;
+    if (Buffer.isBuffer(data)) return data;
+    if (data instanceof ArrayBuffer) return Buffer.from(data);
+    if (ArrayBuffer.isView(data)) return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    return null;
   }
 
   function initStorage() {}
