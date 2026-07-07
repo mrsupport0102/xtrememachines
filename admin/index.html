@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log ind – Xtreme Machines Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-login">
+  <div class="login-card">
+    <div class="login-card__brand">
+      <p class="login-card__eyebrow">Xtreme Machines</p>
+      <h1>Adminpanel</h1>
+      <p class="login-card__sub">Log ind for at administrere motorcykler</p>
+    </div>
+    <form id="loginForm" class="login-form">
+      <label for="password">Adgangskode</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required autofocus>
+      <p id="loginError" class="form-error" hidden></p>
+      <button type="submit" class="admin-btn admin-btn--primary admin-btn--full">Log ind</button>
+    </form>
+  </div>
+  <script>
+    fetch('/api/admin/me').then(r => r.json()).then(d => {
+      if (d.loggedIn) window.location.href = '/admin/panel.html';
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button');
+      const err = document.getElementById('loginError');
+      err.hidden = true;
+      btn.disabled = true;
+      btn.textContent = 'Logger ind…';
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: document.getElementById('password').value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login fejlede');
+        window.location.href = '/admin/panel.html';
+      } catch (error) {
+        err.textContent = error.message;
+        err.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Log ind';
+      }
+    });
+  </script>
+</body>
+</html>

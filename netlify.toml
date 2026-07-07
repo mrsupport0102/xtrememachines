@@ -1,0 +1,7 @@
+# Valgfrit: brug Netlify kun som proxy til Render (samme domæne).
+# Erstat URL'en med din Render-adresse, fx xtreme-machines.onrender.com
+[[redirects]]
+  from = "/*"
+  to = "https://xtreme-machines.onrender.com/:splat"
+  status = 200
+  force = true

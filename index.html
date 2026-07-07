@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xtreme Machines Copenhagen – Harley Davidson</title>
+  <meta name="description" content="40 års erfaring med Harley Davidson. Køb, sælg og finansier motorcykler hos Xtreme Machines i Rødovre.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo" aria-label="Xtreme Machines forside">
+        <img src="assets/images/logo.png" alt="Xtreme Machines" class="logo__img">
+      </a>
+
+      <button class="nav-toggle" id="navToggle" aria-label="Åbn menu" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link nav__link--active">Hjem</a></li>
+          <li><a href="koeb-motorcykel.html" class="nav__link">Køb motorcykel</a></li>
+          <li><a href="saelg-motorcykel.html" class="nav__link">Sælg motorcykel</a></li>
+          <li><a href="finansiering.html" class="nav__link">Finansiering</a></li>
+          <li><a href="#historie" class="nav__link">Historie</a></li>
+          <li><a href="#kontakt" class="nav__link">Kontakt</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero" id="hero">
+    <div class="hero__overlay"></div>
+    <div class="hero__content container">
+      <p class="hero__eyebrow">Harley Davidson specialist · Rødovre</p>
+      <h1 class="hero__title">Xtreme Machines<br>Copenhagen</h1>
+      <p class="hero__subtitle">40 års erfaring med Harley Davidson</p>
+      <a href="koeb-motorcykel.html" class="hero__cta">
+        <span class="hero__cta-text">Se motorcyklerne</span>
+        <span class="hero__cta-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Product Carousel -->
+  <section class="products" id="motorcykler">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <p class="section-eyebrow">Lager</p>
+          <h2 class="section-title">Nyt i shoppen</h2>
+        </div>
+        <div class="carousel-controls">
+          <button class="carousel-btn" id="prevBtn" aria-label="Forrige">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button class="carousel-btn" id="nextBtn" aria-label="Næste">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="carousel-wrapper">
+        <div class="carousel-track" id="carouselTrack">
+          <!-- Products injected by JS -->
+        </div>
+      </div>
+
+      <div class="carousel-dots" id="carouselDots"></div>
+
+      <div class="products__cta">
+        <a href="koeb-motorcykel.html" class="btn btn--outline">Se alle motorcykler</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Services -->
+  <section class="services" id="services">
+    <div class="container">
+      <div class="services__logo">
+        <img
+          src="assets/images/logo-large.png"
+          srcset="assets/images/logo-large.png 3x, assets/images/logo@2x.png 2x, assets/images/logo.png 1x"
+          alt="Xtreme Machines"
+          class="logo__img logo__img--large"
+          width="900"
+          height="165"
+        >
+      </div>
+
+      <div class="services__grid">
+        <article class="service-card">
+          <div class="service-card__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/><path d="M8 17.5h8M5.5 15l2-5h5l2 5"/></svg>
+          </div>
+          <h3 class="service-card__title">Vælg din motorcykel</h3>
+          <p class="service-card__text">Kom og kig på vores lækre cykler og få en god snak hos os i butikken i Rødovre. Eller find din nye motorcykel her på siden.</p>
+        </article>
+
+        <article class="service-card">
+          <div class="service-card__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          </div>
+          <h3 class="service-card__title">Finansier eller køb</h3>
+          <p class="service-card__text">Du kan købe eller finansiere din nye motorcykel. Vi arbejder med Santander, som er behjælpelige med hurtig finansiering med eller uden udbetaling.</p>
+        </article>
+
+        <article class="service-card">
+          <div class="service-card__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <h3 class="service-card__title">Udlev din drøm</h3>
+          <p class="service-card__text">For os handler det om at give dig den bedste oplevelse. Vi rådgiver dig hele vejen og sørger for, at din motorcykeldrøm går i opfyldelse.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Founder / History -->
+  <section class="founder" id="historie">
+    <div class="container founder__grid">
+      <div class="founder__image-wrap">
+        <img src="assets/images/founder-engine.jpg" alt="Harley-Davidson Milwaukee-Eight motor" class="founder__image" loading="lazy">
+      </div>
+
+      <div class="founder__content">
+        <p class="section-eyebrow">Historie</p>
+        <h2 class="founder__title">Jeg byggede min første Harley Davidson i 1989</h2>
+        <p class="founder__intro">Jeg elsker motorcykler, og i særdeleshed Harley Davidson. Det har været min passion siden jeg var dreng, og jeg har i dag 40 års erfaring med custom motorcykler, salg og service.</p>
+
+        <div class="tabs">
+          <div class="tabs__nav" role="tablist">
+            <button class="tabs__btn tabs__btn--active" role="tab" data-tab="vaerdier">Mine værdier</button>
+            <button class="tabs__btn" role="tab" data-tab="forretning">Min forretning</button>
+          </div>
+
+          <div class="tabs__panels">
+            <div class="tabs__panel tabs__panel--active" role="tabpanel" id="vaerdier">
+              <p>Hos Xtreme Machines handler det om ærlighed, kvalitet og passion for motorcykler. Hver handel bygger på tillid og ordentlig rådgivning – ikke på at presse noget igennem, du ikke har brug for.</p>
+              <p>Jeg går ikke på kompromis med niveauet. Kun maskiner jeg selv kan stå inde for, får plads i forretningen. Det betyder, at hver cykel er gennemgået, prøvekørt og præsenteret ærligt – med både styrker og eventuelle bemærkninger.</p>
+              <p>For mig er en god handel en, hvor kunden kører hjem med en motorcykel, der passer til livet og budgettet. Derfor tager jeg mig tid til at lytte, spørge ind og finde den rigtige løsning – uanset om du er førstegangskøber eller har kørt Harley i mange år.</p>
+            </div>
+            <div class="tabs__panel" role="tabpanel" id="forretning">
+              <p>Xtreme Machines er beliggende i Glostrup og har været en fast del af det danske Harley-miljø i over 20 år. Vi startede med passionen for custom og salg, og i dag er forretningen et sted, hvor entusiaster mødes, handler og får hjælp under ét tag.</p>
+              <p>Vi tilbyder salg af nye og brugte Harley-Davidson motorcykler, indbytning, mæglersalg og finansiering i samarbejde med Santander. På værkstedet klargøres og bygges cykler til salg – ofte med custom-detaljer, som gør hver model unik.</p>
+              <p>Butikken har åbent tirsdag, onsdag og torsdag – og efter aftale resten af ugen. Ring gerne på +45 4344 6484, hvis du vil høre om en bestemt model, booke en prøvetur eller få et tilbud på at sælge din egen Harley.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section class="contact" id="kontakt">
+    <div class="container contact__grid">
+      <div class="contact__form-wrap">
+        <h2 class="contact__title">Vil du købe eller sælge?<br><span>Udfyld nedenfor – så kontakter vi dig</span></h2>
+        <form class="contact-form" id="contactForm">
+          <div class="form-group">
+            <label for="name">Navn <span class="required">*</span></label>
+            <input type="text" id="name" name="name" placeholder="Dit navn" required>
+          </div>
+          <div class="form-group">
+            <label for="email">Email <span class="required">*</span></label>
+            <input type="email" id="email" name="email" placeholder="Din email" required>
+          </div>
+          <div class="form-group">
+            <label for="message">Besked</label>
+            <textarea id="message" name="message" rows="4" placeholder="Fortæl os hvad du leder efter..."></textarea>
+          </div>
+          <button type="submit" class="btn btn--primary btn--full">Bliv kontaktet</button>
+        </form>
+      </div>
+
+      <div class="contact__info">
+        <div class="contact__logo">
+          <img src="assets/images/logo.png" alt="Xtreme Machines" class="logo__img logo__img--medium">
+        </div>
+        <div class="contact__details">
+          <div class="contact__detail">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>Rødovre, Danmark</span>
+          </div>
+          <div class="contact__detail">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span>Ring for aftale</span>
+          </div>
+          <div class="contact__detail">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span>info@xtrememachines.dk</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__col">
+        <h4>Velkommen til Xtreme Machines</h4>
+        <p>Vi er specialister i Harley Davidson med over 40 års erfaring. Besøg os i Rødovre og oplev passionen for motorcykler – fra salg og finansiering til custom og service.</p>
+      </div>
+      <div class="footer__col">
+        <h4>Navigation</h4>
+        <ul class="footer__links">
+          <li><a href="koeb-motorcykel.html">Køb motorcykel</a></li>
+          <li><a href="saelg-motorcykel.html">Sælg motorcykel</a></li>
+          <li><a href="finansiering.html">Finansiering</a></li>
+          <li><a href="#historie">Historie</a></li>
+          <li><a href="#kontakt">Kontakt</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>Åbningstider</h4>
+        <ul class="footer__hours">
+          <li><span>Man – Fre</span><span>10:00 – 17:00</span></li>
+          <li><span>Lør</span><span>10:00 – 14:00</span></li>
+          <li><span>Søn</span><span>Lukket</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <div class="container">
+        <p>&copy; 2026 Xtreme Machines Copenhagen. Alle rettigheder forbeholdes.</p>
+        <p class="footer__admin"><a href="/admin/" class="footer__admin-link">Admin login</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="scroll-top" id="scrollTop" aria-label="Til toppen">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+  </button>
+
+  <!-- carousel-bootstrap -->
+  <script src="js/shared.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

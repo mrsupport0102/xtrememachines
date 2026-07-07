@@ -1,0 +1,27 @@
+# Render Blueprint – fuld site med admin
+# Opret via: Render Dashboard → New → Blueprint → vælg GitHub-repo
+#
+# Gratis plan: virker til test, men data/billeder nulstilles ved redeploy.
+# For permanent lagring: skift plan til Starter og brug disken nedenfor.
+services:
+  - type: web
+    name: xtreme-machines
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+    # Fjern kommentarer for permanent lagring (kræver betalt plan):
+    # - key: STORAGE_ROOT
+    #   value: /var/data
+    # disk:
+    #   name: xtreme-storage
+    #   mountPath: /var/data
+    #   sizeGB: 1

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin – Xtreme Machines</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-app">
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar__brand">
+      <p>Xtreme Machines</p>
+      <span>Admin</span>
+    </div>
+    <nav class="admin-nav">
+      <button type="button" class="admin-nav__link admin-nav__link--active" data-view="list">Motorcykler</button>
+      <button type="button" class="admin-nav__link" data-view="form" data-new="true">Ny motorcykel</button>
+    </nav>
+    <button type="button" class="admin-nav__logout" id="logoutBtn">Log ud</button>
+  </aside>
+
+  <main class="admin-main">
+    <!-- Liste -->
+    <section id="viewList" class="admin-view">
+      <header class="admin-header">
+        <div>
+          <h1>Motorcykler</h1>
+          <p id="listCount" class="admin-header__sub">Indlæser…</p>
+        </div>
+        <button type="button" class="admin-btn admin-btn--primary" id="newBikeBtn">+ Ny motorcykel</button>
+      </header>
+
+      <div class="admin-search">
+        <input type="search" id="listSearch" placeholder="Søg efter model, år eller beskrivelse…">
+      </div>
+
+      <div id="listEmpty" class="admin-empty" hidden>
+        <p>Ingen motorcykler endnu.</p>
+        <button type="button" class="admin-btn admin-btn--primary" data-view="form" data-new="true">Opret den første</button>
+      </div>
+
+      <div id="bikeList" class="bike-list"></div>
+    </section>
+
+    <!-- Formular -->
+    <section id="viewForm" class="admin-view" hidden>
+      <header class="admin-header">
+        <div>
+          <h1 id="formTitle">Ny motorcykel</h1>
+          <p class="admin-header__sub">Udfyld oplysningerne og gem – cyklen vises automatisk på hjemmesiden</p>
+        </div>
+        <button type="button" class="admin-btn admin-btn--ghost" id="backToListBtn">← Tilbage til liste</button>
+      </header>
+
+      <form id="bikeForm" class="bike-form">
+        <input type="hidden" id="bikeId">
+
+        <div class="form-grid">
+          <div class="form-field form-field--full">
+            <label for="title">Titel / model *</label>
+            <input type="text" id="title" placeholder="Fx 2018 FLSB Sport Glide Kess Tech" required>
+            <p class="form-hint">Vises som overskrift på hjemmesiden</p>
+          </div>
+
+          <div class="form-field form-field--full">
+            <label for="description">Beskrivelse / specifikationer *</label>
+            <textarea id="description" rows="6" placeholder="Skriv specifikationer adskilt med bindestreg, fx: 1745 CC - 6 GEAR - KM. 30.141 - ABS - …" required></textarea>
+            <p class="form-hint">Hver specifikation adskilles med " - " (mellemrum-bindestreg-mellemrum)</p>
+          </div>
+
+          <div class="form-field">
+            <label for="price">Pris (kr.) *</label>
+            <input type="text" id="price" inputmode="numeric" placeholder="239.900" required>
+          </div>
+
+          <div class="form-field">
+            <label for="downPayment">Udbetaling (kr.)</label>
+            <input type="text" id="downPayment" inputmode="numeric" placeholder="48.480">
+          </div>
+
+          <div class="form-field">
+            <label for="monthly">Månedlig ydelse (kr.)</label>
+            <input type="text" id="monthly" inputmode="numeric" placeholder="2.317">
+          </div>
+
+          <div class="form-field">
+            <label for="note">Note (valgfri)</label>
+            <input type="text" id="note" placeholder="Fx Uden afgift">
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2>Billeder</h2>
+          <p class="form-hint">Træk billeder hertil eller klik for at vælge. Det første valgte hovedbillede vises i oversigten.</p>
+
+          <div id="dropZone" class="drop-zone">
+            <div class="drop-zone__inner">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"/></svg>
+              <p>Træk billeder hertil</p>
+              <span>eller klik for at vælge filer</span>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" multiple hidden>
+          </div>
+
+          <div id="imageGrid" class="image-grid"></div>
+        </div>
+
+        <p id="formError" class="form-error" hidden></p>
+        <p id="formSuccess" class="form-success" hidden></p>
+
+        <div class="form-actions">
+          <button type="submit" class="admin-btn admin-btn--primary" id="saveBtn">Gem motorcykel</button>
+          <button type="button" class="admin-btn admin-btn--ghost" id="cancelFormBtn">Annuller</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

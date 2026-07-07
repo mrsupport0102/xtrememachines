@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Køb motorcykel – Xtreme Machines Copenhagen</title>
+  <meta name="description" content="Se alle Harley Davidson motorcykler til salg hos Xtreme Machines. Priser, specifikationer og billeder.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo" aria-label="Xtreme Machines forside">
+        <img src="assets/images/logo.png" alt="Xtreme Machines" class="logo__img">
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Åbn menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link">Hjem</a></li>
+          <li><a href="koeb-motorcykel.html" class="nav__link nav__link--active">Køb motorcykel</a></li>
+          <li><a href="saelg-motorcykel.html" class="nav__link">Sælg motorcykel</a></li>
+          <li><a href="finansiering.html" class="nav__link">Finansiering</a></li>
+          <li><a href="index.html#historie" class="nav__link">Historie</a></li>
+          <li><a href="index.html#kontakt" class="nav__link">Kontakt</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <section class="page-hero">
+    <div class="container">
+      <p class="section-eyebrow">Lager</p>
+      <h1 class="page-hero__title">Køb motorcykel</h1>
+      <p class="page-hero__subtitle">Alle vores Harley Davidson modeller – klik for at se billeder og specifikationer</p>
+    </div>
+  </section>
+
+  <section class="shop">
+    <div class="container">
+      <div class="shop__toolbar">
+        <div class="shop__search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="search" id="searchInput" placeholder="Søg model, årgang..." aria-label="Søg motorcykler">
+        </div>
+        <div class="shop__meta">
+          <span id="resultCount">41 motorcykler</span>
+        </div>
+      </div>
+
+      <div class="shop__grid" id="shopGrid">
+        <!-- Products injected by JS -->
+      </div>
+
+      <p class="shop__empty" id="shopEmpty" hidden>Ingen motorcykler matcher din søgning.</p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__col">
+        <h4>Velkommen til Xtreme Machines</h4>
+        <p>Vi er specialister i Harley Davidson med over 40 års erfaring. Besøg os i Glostrup og oplev passionen for motorcykler.</p>
+      </div>
+      <div class="footer__col">
+        <h4>Navigation</h4>
+        <ul class="footer__links">
+          <li><a href="koeb-motorcykel.html">Køb motorcykel</a></li>
+          <li><a href="saelg-motorcykel.html">Sælg motorcykel</a></li>
+          <li><a href="finansiering.html">Finansiering</a></li>
+          <li><a href="index.html#historie">Historie</a></li>
+          <li><a href="index.html#kontakt">Kontakt</a></li>
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4>Kontakt</h4>
+        <ul class="footer__links">
+          <li><a href="tel:+4543446484">+45 4344 6484</a></li>
+          <li><a href="mailto:xtreme-jp@mail.dk">xtreme-jp@mail.dk</a></li>
+          <li>Herstedøstervej 3-5, 2600 Glostrup</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <div class="container">
+        <p>&copy; 2026 Xtreme Machines Copenhagen. Alle rettigheder forbeholdes.</p>
+        <p class="footer__admin"><a href="/admin/" class="footer__admin-link">Admin login</a></p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="scroll-top" id="scrollTop" aria-label="Til toppen">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+  </button>
+
+  <script src="js/shared.js"></script>
+  <script src="js/shop.js"></script>
+</body>
+</html>
