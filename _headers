@@ -1,0 +1,9 @@
+/*
+  Netlify Headers
+*/
+
+/data/products.json
+  Cache-Control: public, max-age=300
+
+/api/*
+  Cache-Control: no-store
