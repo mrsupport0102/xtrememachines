@@ -1,0 +1,81 @@
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+
+function createNetlifyStorage({ repoDataFile }) {
+  let productsStore;
+  let imagesStore;
+
+  function getStores() {
+    if (!productsStore || !imagesStore) {
+      const { getStore } = require('@netlify/blobs');
+      productsStore = getStore({ name: 'xtreme-products', consistency: 'strong' });
+      imagesStore = getStore({ name: 'xtreme-bike-images', consistency: 'strong' });
+    }
+    return { productsStore, imagesStore };
+  }
+
+  async function readProducts() {
+    const { productsStore } = getStores();
+    const stored = await productsStore.get('products', { type: 'json' });
+    if (stored) return stored;
+
+    if (fs.existsSync(repoDataFile)) {
+      const seed = JSON.parse(fs.readFileSync(repoDataFile, 'utf8'));
+      await productsStore.setJSON('products', seed);
+      return seed;
+    }
+
+    return [];
+  }
+
+  async function writeProducts(products) {
+    const { productsStore } = getStores();
+    await productsStore.setJSON('products', products);
+  }
+
+  async function saveImage(buffer, productId, originalName) {
+    const { imagesStore } = getStores();
+
+    const base = path.basename(originalName, path.extname(originalName))
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'billede';
+
+    const filename = `${base}-${Date.now()}.jpg`;
+    const key = `${productId}/${filename}`;
+
+    const optimized = await sharp(buffer)
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85, mozjpeg: true })
+      .toBuffer();
+
+    await imagesStore.set(key, optimized, { metadata: { contentType: 'image/jpeg' } });
+    return `/assets/images/bikes/${productId}/${filename}`;
+  }
+
+  async function deleteProductImages(productId) {
+    const { imagesStore } = getStores();
+    const { blobs } = await imagesStore.list({ prefix: `${productId}/` });
+    await Promise.all(blobs.map(blob => imagesStore.delete(blob.key)));
+  }
+
+  async function getImage(productId, filename) {
+    const { imagesStore } = getStores();
+    return imagesStore.get(`${productId}/${filename}`, { type: 'arrayBuffer' });
+  }
+
+  function initStorage() {}
+
+  return {
+    initStorage,
+    readProducts,
+    writeProducts,
+    saveImage,
+    deleteProductImages,
+    getImage,
+  };
+}
+
+module.exports = { createNetlifyStorage };

@@ -1,7 +1,24 @@
-# Valgfrit: brug Netlify kun som proxy til Render (samme domæne).
-# Erstat URL'en med din Render-adresse, fx xtreme-machines.onrender.com
+[build]
+  command = "npm install"
+  publish = "."
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NETLIFY = "true"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["data/products.json"]
+
 [[redirects]]
-  from = "/*"
-  to = "https://xtreme-machines.onrender.com/:splat"
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
   status = 200
-  force = true
+
+[[redirects]]
+  from = "/assets/images/bikes/*"
+  to = "/.netlify/functions/api/assets/images/bikes/:splat"
+  status = 200
+
+# Admin statiske filer serveres direkte fra publish-mappen
