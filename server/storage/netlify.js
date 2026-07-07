@@ -9,6 +9,8 @@ try {
   // Ignoreres – prøver filsti ved runtime
 }
 
+const MANIFEST_KEY = 'manifest';
+
 function loadSeedFromDisk(repoDataFile) {
   const candidates = [
     repoDataFile,
@@ -30,35 +32,68 @@ function getSeedProducts(repoDataFile) {
   return loadSeedFromDisk(repoDataFile);
 }
 
-function createNetlifyStorage({ repoDataFile }) {
-  let productsStore;
-  let imagesStore;
+function productKey(id) {
+  return `product:${id}`;
+}
 
+function createNetlifyStorage({ repoDataFile }) {
   function getStores() {
-    if (!productsStore || !imagesStore) {
-      const { getStore } = require('@netlify/blobs');
-      productsStore = getStore({ name: 'xtreme-products', consistency: 'strong' });
-      imagesStore = getStore({ name: 'xtreme-bike-images', consistency: 'strong' });
-    }
-    return { productsStore, imagesStore };
+    const { getStore } = require('@netlify/blobs');
+    return {
+      productsStore: getStore('xtreme-products'),
+      imagesStore: getStore('xtreme-bike-images'),
+    };
+  }
+
+  async function readManifest(store) {
+    const manifest = await store.get(MANIFEST_KEY, { type: 'json' });
+    return Array.isArray(manifest) ? manifest : [];
+  }
+
+  async function writeManifest(store, ids) {
+    await store.setJSON(MANIFEST_KEY, ids);
+  }
+
+  async function seedStore(store, products) {
+    const ids = products.map(p => p.id);
+    await writeManifest(store, ids);
+    await Promise.all(products.map(product => store.setJSON(productKey(product.id), product)));
+  }
+
+  async function readLegacyProducts(store) {
+    const legacy = await store.get('products', { type: 'json' });
+    if (!Array.isArray(legacy) || !legacy.length) return null;
+
+    await seedStore(store, legacy);
+    await store.delete('products');
+    return legacy;
   }
 
   async function readProducts() {
     try {
       const { productsStore } = getStores();
-      const stored = await productsStore.get('products', { type: 'json' });
+      let manifest = await readManifest(productsStore);
 
-      if (Array.isArray(stored) && stored.length > 0) {
-        return stored;
+      if (!manifest.length) {
+        const legacy = await readLegacyProducts(productsStore);
+        if (legacy) return legacy;
+      }
+
+      if (manifest.length) {
+        const products = await Promise.all(
+          manifest.map(id => productsStore.get(productKey(id), { type: 'json' }))
+        );
+        const valid = products.filter(Boolean);
+        if (valid.length) return valid;
       }
 
       const seed = getSeedProducts(repoDataFile);
       if (Array.isArray(seed) && seed.length > 0) {
-        await productsStore.setJSON('products', seed);
+        await seedStore(productsStore, seed);
         return seed;
       }
 
-      return Array.isArray(stored) ? stored : [];
+      return [];
     } catch (err) {
       console.error('Netlify Blobs readProducts fejlede:', err.message);
       const seed = getSeedProducts(repoDataFile);
@@ -69,45 +104,70 @@ function createNetlifyStorage({ repoDataFile }) {
   async function writeProducts(products) {
     try {
       const { productsStore } = getStores();
-      await productsStore.setJSON('products', products);
+      const ids = products.map(p => p.id);
+      for (const product of products) {
+        await productsStore.setJSON(productKey(product.id), product);
+      }
+      await writeManifest(productsStore, ids);
     } catch (err) {
       console.error('Netlify Blobs writeProducts fejlede:', err.message);
-      throw new Error('Kunne ikke gemme data – prøv igen om et øjeblik');
+      throw new Error(`Kunne ikke gemme data: ${err.message}`);
+    }
+  }
+
+  async function writeProduct(product) {
+    try {
+      const { productsStore } = getStores();
+      await productsStore.setJSON(productKey(product.id), product);
+      const manifest = await readManifest(productsStore);
+      if (!manifest.includes(product.id)) {
+        await writeManifest(productsStore, [product.id, ...manifest]);
+      }
+    } catch (err) {
+      console.error('Netlify Blobs writeProduct fejlede:', err.message);
+      throw new Error(`Kunne ikke gemme data: ${err.message}`);
     }
   }
 
   async function saveImage(buffer, productId, originalName) {
-    const { imagesStore } = getStores();
-
-    const base = path.basename(originalName, path.extname(originalName))
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '') || 'billede';
-
-    const filename = `${base}-${Date.now()}.jpg`;
-    const key = `${productId}/${filename}`;
-
-    let optimized = buffer;
     try {
-      optimized = await sharp(buffer)
-        .rotate()
-        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85, mozjpeg: true })
-        .toBuffer();
-    } catch (err) {
-      console.warn('Sharp komprimering sprunget over:', err.message);
-    }
+      const { imagesStore } = getStores();
 
-    await imagesStore.set(key, optimized, {
-      metadata: { contentType: 'image/jpeg' },
-    });
-    return `/assets/images/bikes/${productId}/${filename}`;
+      const base = path.basename(originalName, path.extname(originalName))
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'billede';
+
+      const filename = `${base}-${Date.now()}.jpg`;
+      const key = `${productId}/${filename}`;
+
+      let optimized = buffer;
+      try {
+        optimized = await sharp(buffer)
+          .rotate()
+          .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85, mozjpeg: true })
+          .toBuffer();
+      } catch (err) {
+        console.warn('Sharp komprimering sprunget over:', err.message);
+      }
+
+      await imagesStore.set(key, optimized);
+      return `/assets/images/bikes/${productId}/${filename}`;
+    } catch (err) {
+      console.error('Netlify Blobs saveImage fejlede:', err.message);
+      throw new Error(`Billedupload fejlede: ${err.message}`);
+    }
   }
 
   async function deleteProductImages(productId) {
-    const { imagesStore } = getStores();
-    const { blobs } = await imagesStore.list({ prefix: `${productId}/` });
-    await Promise.all(blobs.map(blob => imagesStore.delete(blob.key)));
+    try {
+      const { imagesStore } = getStores();
+      const { blobs } = await imagesStore.list({ prefix: `${productId}/` });
+      await Promise.all(blobs.map(blob => imagesStore.delete(blob.key)));
+    } catch (err) {
+      console.error('Netlify Blobs deleteProductImages fejlede:', err.message);
+    }
   }
 
   async function getImage(productId, filename) {
@@ -121,6 +181,7 @@ function createNetlifyStorage({ repoDataFile }) {
     initStorage,
     readProducts,
     writeProducts,
+    writeProduct,
     saveImage,
     deleteProductImages,
     getImage,

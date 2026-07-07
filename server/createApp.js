@@ -69,7 +69,13 @@ function createApp({ serveStatic = true } = {}) {
       return next;
     });
 
-    if (changed) await storage.writeProducts(migrated);
+    if (changed) {
+      try {
+        await storage.writeProducts(migrated);
+      } catch (err) {
+        console.error('migrateProducts write skipped:', err.message);
+      }
+    }
     return migrated;
   }
 
@@ -195,6 +201,14 @@ function createApp({ serveStatic = true } = {}) {
     }
   });
 
+  async function saveProductRecord(products, product) {
+    if (typeof storage.writeProduct === 'function') {
+      await storage.writeProduct(product);
+      return;
+    }
+    await storage.writeProducts(products);
+  }
+
   app.post('/api/admin/products/draft', requireAuth, async (req, res) => {
     try {
       const products = await readAndMigrateProducts();
@@ -215,7 +229,7 @@ function createApp({ serveStatic = true } = {}) {
         updatedAt: now,
       };
       products.unshift(product);
-      await storage.writeProducts(products);
+      await saveProductRecord(products, product);
       res.status(201).json(product);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -235,7 +249,7 @@ function createApp({ serveStatic = true } = {}) {
         updatedAt: now,
       };
       products.unshift(product);
-      await storage.writeProducts(products);
+      await saveProductRecord(products, product);
       res.status(201).json(product);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -261,7 +275,7 @@ function createApp({ serveStatic = true } = {}) {
       };
       if (products[index].status !== 'sold') delete products[index].badge;
 
-      await storage.writeProducts(products);
+      await saveProductRecord(products, products[index]);
       res.json(products[index]);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -280,7 +294,7 @@ function createApp({ serveStatic = true } = {}) {
       if (!sold) delete products[index].badge;
       products[index].updatedAt = new Date().toISOString();
 
-      await storage.writeProducts(products);
+      await saveProductRecord(products, products[index]);
       res.json(products[index]);
     } catch {
       res.status(500).json({ error: 'Kunne ikke opdatere status' });
@@ -352,10 +366,19 @@ function createApp({ serveStatic = true } = {}) {
       }
 
       const index = products.findIndex(p => p.id === productId);
-      products[index].images = [...(products[index].images || []), ...urls];
-      if (!products[index].image) products[index].image = urls[0];
-      products[index].updatedAt = new Date().toISOString();
-      await storage.writeProducts(products);
+      const updated = {
+        ...products[index],
+        images: [...(products[index].images || []), ...urls],
+        image: products[index].image || urls[0],
+        updatedAt: new Date().toISOString(),
+      };
+      products[index] = updated;
+
+      if (typeof storage.writeProduct === 'function') {
+        await storage.writeProduct(updated);
+      } else {
+        await storage.writeProducts(products);
+      }
 
       res.json({ urls });
     } catch (err) {

@@ -21,7 +21,8 @@
   external_node_modules = ["sharp"]
 
 [functions.api]
-  timeout = 26
+  timeout = 60
+  memory = 1024
 
 [[redirects]]
   from = "/api/*"
