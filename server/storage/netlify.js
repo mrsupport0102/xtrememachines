@@ -44,25 +44,36 @@ function createNetlifyStorage({ repoDataFile }) {
   }
 
   async function readProducts() {
-    const { productsStore } = getStores();
-    const stored = await productsStore.get('products', { type: 'json' });
+    try {
+      const { productsStore } = getStores();
+      const stored = await productsStore.get('products', { type: 'json' });
 
-    if (Array.isArray(stored) && stored.length > 0) {
-      return stored;
+      if (Array.isArray(stored) && stored.length > 0) {
+        return stored;
+      }
+
+      const seed = getSeedProducts(repoDataFile);
+      if (Array.isArray(seed) && seed.length > 0) {
+        await productsStore.setJSON('products', seed);
+        return seed;
+      }
+
+      return Array.isArray(stored) ? stored : [];
+    } catch (err) {
+      console.error('Netlify Blobs readProducts fejlede:', err.message);
+      const seed = getSeedProducts(repoDataFile);
+      return Array.isArray(seed) ? seed : [];
     }
-
-    const seed = getSeedProducts(repoDataFile);
-    if (Array.isArray(seed) && seed.length > 0) {
-      await productsStore.setJSON('products', seed);
-      return seed;
-    }
-
-    return Array.isArray(stored) ? stored : [];
   }
 
   async function writeProducts(products) {
-    const { productsStore } = getStores();
-    await productsStore.setJSON('products', products);
+    try {
+      const { productsStore } = getStores();
+      await productsStore.setJSON('products', products);
+    } catch (err) {
+      console.error('Netlify Blobs writeProducts fejlede:', err.message);
+      throw new Error('Kunne ikke gemme data – prøv igen om et øjeblik');
+    }
   }
 
   async function saveImage(buffer, productId, originalName) {
