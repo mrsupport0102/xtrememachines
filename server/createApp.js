@@ -21,7 +21,7 @@ const STORAGE_ROOT = process.env.STORAGE_ROOT || path.join(ROOT, 'data');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'xtreme2026';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'xtreme-dev-secret-change-me';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const IS_NETLIFY = process.env.NETLIFY === 'true';
+const IS_NETLIFY = process.env.NETLIFY === 'true' || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
 
 const storage = createStorage({ root: ROOT, storageRoot: STORAGE_ROOT });
 

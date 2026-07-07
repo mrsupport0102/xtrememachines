@@ -25,7 +25,7 @@ const fileInput = document.getElementById('fileInput');
 // ---- Auth check ----
 
 async function checkAuth() {
-  const res = await fetch('/api/admin/me');
+  const res = await fetch('/api/admin/me', { credentials: 'same-origin' });
   const data = await res.json();
   if (!data.loggedIn) {
     window.location.href = '/admin/';
@@ -56,12 +56,18 @@ function showToast(message) {
 // ---- Liste ----
 
 async function loadBikes() {
-  const res = await fetch('/api/admin/products');
+  const res = await fetch('/api/admin/products', { credentials: 'same-origin' });
   if (res.status === 401) {
     window.location.href = '/admin/';
     return;
   }
-  allBikes = await res.json();
+  const data = await res.json();
+  if (!res.ok || !Array.isArray(data)) {
+    showToast(data?.error || 'Kunne ikke hente motorcykler');
+    allBikes = [];
+  } else {
+    allBikes = data;
+  }
   renderList(allBikes);
 }
 
@@ -145,6 +151,7 @@ async function patchSold(id, sold) {
   const res = await fetch(`/api/admin/products/${id}/sold`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify({ sold }),
   });
   if (!res.ok) {
@@ -156,7 +163,7 @@ async function patchSold(id, sold) {
 }
 
 async function deleteBike(id) {
-  const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE' });
+  const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE', credentials: 'same-origin' });
   if (!res.ok) {
     showToast('Kunne ikke slette motorcykel');
     return;
@@ -272,6 +279,7 @@ async function uploadFiles(fileList) {
   try {
     const res = await fetch(`/api/admin/products/${productId}/images`, {
       method: 'POST',
+      credentials: 'same-origin',
       body: formData,
     });
     const data = await res.json();
@@ -294,6 +302,7 @@ async function createDraftForUpload() {
   const res = await fetch('/api/admin/products/draft', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify({
       title: document.getElementById('title').value.trim() || 'Ny motorcykel',
       description: document.getElementById('description').value.trim() || 'Udfyld specifikationer',
@@ -352,6 +361,7 @@ bikeForm.addEventListener('submit', async e => {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(payload),
     });
     const data = await res.json();
@@ -393,7 +403,7 @@ document.getElementById('backToListBtn').addEventListener('click', () => showVie
 document.getElementById('cancelFormBtn').addEventListener('click', () => showView('list'));
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await fetch('/api/admin/logout', { method: 'POST' });
+  await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
   window.location.href = '/admin/';
 });
 

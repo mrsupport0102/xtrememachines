@@ -2,10 +2,18 @@ const path = require('path');
 const { createFilesystemStorage } = require('./filesystem');
 const { createNetlifyStorage } = require('./netlify');
 
+function isNetlifyRuntime() {
+  return (
+    process.env.NETLIFY === 'true' ||
+    Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME) ||
+    Boolean(process.env.LAMBDA_TASK_ROOT)
+  );
+}
+
 function createStorage({ root, storageRoot }) {
   const repoDataFile = path.join(root, 'data', 'products.json');
 
-  if (process.env.NETLIFY === 'true') {
+  if (isNetlifyRuntime()) {
     return createNetlifyStorage({ repoDataFile });
   }
 
@@ -15,4 +23,4 @@ function createStorage({ root, storageRoot }) {
   });
 }
 
-module.exports = { createStorage };
+module.exports = { createStorage, isNetlifyRuntime };

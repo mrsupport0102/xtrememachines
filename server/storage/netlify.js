@@ -2,6 +2,34 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
+let bundledSeed = null;
+try {
+  bundledSeed = require('../../data/products.json');
+} catch {
+  // Ignoreres – prøver filsti ved runtime
+}
+
+function loadSeedFromDisk(repoDataFile) {
+  const candidates = [
+    repoDataFile,
+    path.join(process.cwd(), 'data', 'products.json'),
+    path.join(__dirname, '../../data/products.json'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return JSON.parse(fs.readFileSync(candidate, 'utf8'));
+    }
+  }
+
+  return null;
+}
+
+function getSeedProducts(repoDataFile) {
+  if (Array.isArray(bundledSeed) && bundledSeed.length) return bundledSeed;
+  return loadSeedFromDisk(repoDataFile);
+}
+
 function createNetlifyStorage({ repoDataFile }) {
   let productsStore;
   let imagesStore;
@@ -18,15 +46,18 @@ function createNetlifyStorage({ repoDataFile }) {
   async function readProducts() {
     const { productsStore } = getStores();
     const stored = await productsStore.get('products', { type: 'json' });
-    if (stored) return stored;
 
-    if (fs.existsSync(repoDataFile)) {
-      const seed = JSON.parse(fs.readFileSync(repoDataFile, 'utf8'));
+    if (Array.isArray(stored) && stored.length > 0) {
+      return stored;
+    }
+
+    const seed = getSeedProducts(repoDataFile);
+    if (Array.isArray(seed) && seed.length > 0) {
       await productsStore.setJSON('products', seed);
       return seed;
     }
 
-    return [];
+    return Array.isArray(stored) ? stored : [];
   }
 
   async function writeProducts(products) {
