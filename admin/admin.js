@@ -22,7 +22,39 @@ const imageGrid = document.getElementById('imageGrid');
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 const specRows = document.getElementById('specRows');
+const specFieldGrid = document.getElementById('specFieldGrid');
 const specPreview = document.getElementById('specPreview');
+
+const SPEC_FIELD_DEFS = [
+  { id: 'highlight', label: 'Salgstekst / highlight', type: 'text', placeholder: 'Fx !!! DANMARKS BILLIGSTE SPORT GLIDE !!!', fullWidth: true },
+  { id: 'udstoedning', label: 'Udstødning', type: 'text', placeholder: 'Fx KESS TECH ELEKTRONISK JUSTERBAR UDSTØDNING', fullWidth: true },
+  { id: 'abs', label: 'ABS', type: 'toggle', value: 'ABS' },
+  { id: 'keyless', label: 'Keyless ride', type: 'toggle', value: 'KEYLESS RIDE' },
+  { id: 'alarm', label: 'Betjeningsfri alarm og startspærre', type: 'toggle', value: 'BETJENINGSFRI ALARM OG STARTSPÆRRE' },
+  { id: 'cruise', label: 'Cruise control', type: 'toggle', value: 'CRUISE CONTROL' },
+  { id: 'navigation', label: 'Navigation', type: 'text', placeholder: 'Fx TOM TOM NAVIGATION' },
+  { id: 'gearindikator', label: 'Gearindikator', type: 'toggle', value: 'GEARINDIKATOR' },
+  { id: 'koerecomputer', label: 'Kørecomputer', type: 'toggle', value: 'KØRECOMPUTER' },
+  { id: 'injection', label: 'Injection', type: 'toggle', value: 'INJECTION' },
+  { id: 'ryglaen', label: 'Aftagelig H-D ryglæn', type: 'toggle', value: 'AFTAGELIG H-D RYGLÆN' },
+  { id: 'blinklys', label: 'Blinklysglas for', type: 'text', placeholder: 'Fx SORTE BLINKLYSGLAS FOR' },
+  { id: 'tasker', label: 'Aftagelige tasker', type: 'toggle', value: 'AFTAGELIGE TASKER' },
+  { id: 'kaabe', label: 'Kåbe', type: 'text', placeholder: 'Fx AFTAGELIG KÅBE MED 3 SLAGS KÅBEGLAS', fullWidth: true },
+  { id: 'forgaffel', label: 'Forgaffel', type: 'text', placeholder: 'Fx SORT UPSIDE DOWN FORGAFFEL' },
+  { id: 'hjul', label: 'Hjul', type: 'text', placeholder: 'Fx CONTRAST CUT ALU HJUL' },
+  { id: 'forlygte', label: 'Forlygte', type: 'text', placeholder: 'Fx SORT LED FORLYGTE' },
+  { id: 'speedometer', label: 'Digital speedometer', type: 'toggle', value: 'DIGITAL SPEEDOMETER' },
+  { id: 'fremflytter', label: 'Fremflyttersæt', type: 'text', placeholder: 'Fx FREMFLYTTERSÆT' },
+  { id: 'stoeddaemper', label: 'Justerbar støddæmper', type: 'toggle', value: 'JUSTERBAR STØDDÆMPER' },
+  { id: 'passager_fod', label: 'Passager fodhvilersæt', type: 'toggle', value: 'PASSAGER FODHVILERSÆT' },
+  { id: 'passager_saede', label: 'Passager sæde', type: 'toggle', value: 'PASSAGER SÆDE' },
+  { id: 'styr', label: 'Styr', type: 'text', placeholder: 'Fx FAT BAR STYR' },
+  { id: 'bagende', label: 'Bag-ende', type: 'text', placeholder: 'Fx 180 BAGENDE' },
+  { id: 'synet', label: 'Synet', type: 'toggle', value: 'SYNET' },
+  { id: 'klargoering', label: 'Gennemgang og klargøring', type: 'toggle', value: 'GENNEMGANG OG KLARGØRING GENNEMFØRT' },
+  { id: 'levomk', label: 'Leveringsomkostninger', type: 'toggle', value: 'LEV. OMK. KR. 2.500' },
+  { id: 'pris_ialt', label: 'Pris i alt', type: 'text', placeholder: 'Fx PRIS IALT KR. 242.400', fullWidth: true },
+];
 
 // ---- Specifikationer (matcher server/productUtils.js) ----
 
@@ -78,13 +110,106 @@ function parseDescription(description = '') {
   return { cc, gears, km, specs };
 }
 
+function normalizeSpecText(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function specMatchesField(spec, field) {
+  const normalized = normalizeSpecText(spec);
+  if (field.type === 'toggle') {
+    return normalized === normalizeSpecText(field.value);
+  }
+
+  const example = normalizeSpecText(field.placeholder?.replace(/^FX\s+/i, ''));
+  if (example && normalized === example) return true;
+
+  const keywords = {
+    highlight: ['!!!', '!! ', 'SUPERPRIS', 'BILLIGSTE'],
+    udstoedning: ['UDSTØDNING', 'UDSTODNING'],
+    navigation: ['NAVIGATION', 'TOM TOM'],
+    blinklys: ['BLINKLYSGLAS', 'BLINKLYS GLAS'],
+    kaabe: ['KÅBE', 'KABE', 'VINDSKÆRM'],
+    forgaffel: ['FORGAFFEL'],
+    hjul: ['ALU HJUL', 'HJUL'],
+    forlygte: ['FORLYGTE'],
+    fremflytter: ['FREMFLYTTERSÆT', 'FREMFLYTTERSAET'],
+    styr: ['STYR'],
+    bagende: ['BAGENDE'],
+    pris_ialt: ['PRIS IALT'],
+  };
+
+  const keys = keywords[field.id];
+  return Boolean(keys && keys.some(key => normalized.includes(key)));
+}
+
+function renderSpecFieldGrid(values = {}) {
+  specFieldGrid.innerHTML = SPEC_FIELD_DEFS.map(field => {
+    if (field.type === 'toggle') {
+      const checked = Boolean(values[field.id]);
+      return `
+        <div class="spec-field spec-field--toggle${field.fullWidth ? ' spec-field--full' : ''}">
+          <input type="checkbox" id="specField_${field.id}" data-spec-field="${field.id}" ${checked ? 'checked' : ''}>
+          <label for="specField_${field.id}">${escapeHtml(field.label)}</label>
+        </div>
+      `;
+    }
+
+    const value = values[field.id] || '';
+    return `
+      <div class="spec-field${field.fullWidth ? ' spec-field--full' : ''}">
+        <label for="specField_${field.id}">${escapeHtml(field.label)}</label>
+        <input type="text" id="specField_${field.id}" data-spec-field="${field.id}" value="${escapeAttr(value)}" placeholder="${escapeAttr(field.placeholder || '')}">
+      </div>
+    `;
+  }).join('');
+  updateSpecPreview();
+}
+
+function getFieldSpecValues() {
+  const values = {};
+
+  SPEC_FIELD_DEFS.forEach(field => {
+    const el = document.getElementById(`specField_${field.id}`);
+    if (!el) return;
+
+    if (field.type === 'toggle') {
+      values[field.id] = el.checked;
+      return;
+    }
+
+    values[field.id] = el.value.trim();
+  });
+
+  return values;
+}
+
+function collectSpecsFromFields(fieldValues) {
+  const specs = [];
+
+  SPEC_FIELD_DEFS.forEach(field => {
+    if (field.type === 'toggle') {
+      if (fieldValues[field.id]) specs.push(field.value);
+      return;
+    }
+
+    const value = String(fieldValues[field.id] || '').trim();
+    if (value) specs.push(value);
+  });
+
+  return specs;
+}
+
 function getSpecValues() {
   const cc = document.getElementById('specCc').value.trim();
   const gears = document.getElementById('specGears').value.trim();
   const km = document.getElementById('specKm').value.trim();
-  const specs = [...specRows.querySelectorAll('.spec-row input')]
-    .map(input => input.value.trim())
-    .filter(Boolean);
+  const fieldValues = getFieldSpecValues();
+  const specs = [
+    ...collectSpecsFromFields(fieldValues),
+    ...[...specRows.querySelectorAll('.spec-row input')]
+      .map(input => input.value.trim())
+      .filter(Boolean),
+  ];
 
   return { cc, gears, km, specs };
 }
@@ -95,14 +220,11 @@ function updateSpecPreview() {
   specPreview.textContent = built || '–';
 }
 
-function renderSpecRows(specs = ['']) {
-  const rows = specs.length ? specs : [''];
-  specRows.innerHTML = rows.map((value, index) => `
+function renderSpecRows(specs = []) {
+  specRows.innerHTML = specs.map((value, index) => `
     <div class="spec-row">
-      <input type="text" class="spec-row__input" value="${escapeAttr(value)}" placeholder="Fx ABS, CRUISE CONTROL, SYNET…">
-      ${rows.length > 1 || index > 0
-        ? `<button type="button" class="spec-row__remove" data-remove-spec aria-label="Fjern specifikation">×</button>`
-        : ''}
+      <input type="text" class="spec-row__input" value="${escapeAttr(value)}" placeholder="Fx SORT THUNDERBIKE LUFTFILTER">
+      <button type="button" class="spec-row__remove" data-remove-spec aria-label="Fjern specifikation">×</button>
     </div>
   `).join('');
   updateSpecPreview();
@@ -115,7 +237,47 @@ function fillSpecFields(description) {
   document.getElementById('specKm').value = parsed.km
     ? parsed.km.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
     : '';
-  renderSpecRows(parsed.specs.length ? parsed.specs : ['']);
+
+  const fieldValues = {};
+  const usedFields = new Set();
+  const assignedSpecs = new Set();
+  const extras = [];
+
+  parsed.specs.forEach((spec, index) => {
+    const toggleField = SPEC_FIELD_DEFS.find(def =>
+      def.type === 'toggle'
+      && !usedFields.has(def.id)
+      && normalizeSpecText(spec) === normalizeSpecText(def.value)
+    );
+
+    if (toggleField) {
+      usedFields.add(toggleField.id);
+      assignedSpecs.add(index);
+      fieldValues[toggleField.id] = true;
+    }
+  });
+
+  parsed.specs.forEach((spec, index) => {
+    if (assignedSpecs.has(index)) return;
+
+    const textField = SPEC_FIELD_DEFS.find(def =>
+      def.type === 'text'
+      && !usedFields.has(def.id)
+      && specMatchesField(spec, def)
+    );
+
+    if (textField) {
+      usedFields.add(textField.id);
+      assignedSpecs.add(index);
+      fieldValues[textField.id] = spec;
+      return;
+    }
+
+    extras.push(spec);
+  });
+
+  renderSpecFieldGrid(fieldValues);
+  renderSpecRows(extras);
 }
 
 function imageSrc(url) {
@@ -315,7 +477,8 @@ async function openForm(id = null) {
   } else {
     formTitle.textContent = 'Ny motorcykel';
     document.getElementById('bikeId').value = '';
-    renderSpecRows(['']);
+    renderSpecFieldGrid();
+    renderSpecRows([]);
   }
 
   renderImageGrid();
@@ -363,19 +526,24 @@ imageGrid.addEventListener('click', e => {
 // ---- Specifikationsfelter ----
 
 document.getElementById('addSpecBtn').addEventListener('click', () => {
-  const values = getSpecValues();
-  renderSpecRows([...values.specs, '']);
+  const extras = [...specRows.querySelectorAll('.spec-row input')]
+    .map(input => input.value.trim());
+  renderSpecRows([...extras, '']);
 });
+
+specFieldGrid.addEventListener('input', updateSpecPreview);
+specFieldGrid.addEventListener('change', updateSpecPreview);
 
 specRows.addEventListener('input', updateSpecPreview);
 specRows.addEventListener('click', e => {
   const btn = e.target.closest('[data-remove-spec]');
   if (!btn) return;
-  const values = getSpecValues();
+  const extras = [...specRows.querySelectorAll('.spec-row input')]
+    .map(input => input.value.trim());
   const row = btn.closest('.spec-row');
   const index = [...specRows.querySelectorAll('.spec-row')].indexOf(row);
-  values.specs.splice(index, 1);
-  renderSpecRows(values.specs.length ? values.specs : ['']);
+  extras.splice(index, 1);
+  renderSpecRows(extras);
 });
 
 ['specCc', 'specGears', 'specKm'].forEach(id => {

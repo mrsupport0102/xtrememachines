@@ -564,6 +564,66 @@ body {
   margin-bottom: 20px;
 }
 
+.spec-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+  margin-bottom: 24px;
+}
+
+.spec-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spec-field label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--admin-text);
+}
+
+.spec-field input[type="text"] {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  font-size: 0.95rem;
+}
+
+.spec-field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--admin-red);
+}
+
+.spec-field--toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+}
+
+.spec-field--toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--admin-red);
+  flex-shrink: 0;
+}
+
+.spec-field--toggle label {
+  margin: 0;
+  cursor: pointer;
+}
+
+.spec-field--full {
+  grid-column: 1 / -1;
+}
+
 .spec-rows {
   display: flex;
   flex-direction: column;
@@ -692,6 +752,10 @@ body {
   }
 
   .spec-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .spec-field-grid {
     grid-template-columns: 1fr;
   }
 

@@ -69,7 +69,7 @@
 
           <div class="spec-grid">
             <div class="form-field">
-              <label for="specCc">Motor (CC)</label>
+              <label for="specCc">CC</label>
               <input type="text" id="specCc" inputmode="numeric" placeholder="Fx 1745">
             </div>
             <div class="form-field">
@@ -77,15 +77,18 @@
               <input type="text" id="specGears" inputmode="numeric" placeholder="Fx 6">
             </div>
             <div class="form-field">
-              <label for="specKm">Kilometer</label>
+              <label for="specKm">KM</label>
               <input type="text" id="specKm" inputmode="numeric" placeholder="Fx 30.141">
             </div>
           </div>
 
+          <div id="specFieldGrid" class="spec-field-grid"></div>
+
           <div class="form-field form-field--full">
-            <label>Øvrige specifikationer</label>
+            <label>Ekstra specifikationer</label>
+            <p class="form-hint">Til særlige udstyrstile der ikke er i listen ovenfor</p>
             <div id="specRows" class="spec-rows"></div>
-            <button type="button" class="admin-btn admin-btn--ghost admin-btn--small" id="addSpecBtn">+ Tilføj specifikation</button>
+            <button type="button" class="admin-btn admin-btn--ghost admin-btn--small" id="addSpecBtn">+ Tilføj ekstra specifikation</button>
           </div>
 
           <div class="spec-preview">
