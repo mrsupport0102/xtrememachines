@@ -205,8 +205,8 @@ a {
   content: '';
   position: absolute;
   inset: 0;
-  background: url('assets/images/hero.jpg') center 38% / cover no-repeat;
-  filter: contrast(1.1) brightness(0.55) saturate(0.75);
+  background: url('assets/images/hero.jpg') center 55% / cover no-repeat;
+  filter: contrast(1.08) brightness(0.48) saturate(0.85);
   z-index: 0;
 }
 
