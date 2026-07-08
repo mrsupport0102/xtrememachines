@@ -105,13 +105,19 @@ function normalizeStoredImages(images, image, baseUrl) {
 }
 
 function normalizeProduct(product, baseUrl) {
-  if (!product || !baseUrl) return product;
+  if (!product || !baseUrl) return stripPrivateProductFields(product);
 
-  return {
+  return stripPrivateProductFields({
     ...product,
     image: absoluteUrl(product.image, baseUrl),
     images: (product.images || []).map(url => absoluteUrl(url, baseUrl)),
-  };
+  });
+}
+
+function stripPrivateProductFields(product) {
+  if (!product || typeof product !== 'object') return product;
+  const { imageData, ...rest } = product;
+  return rest;
 }
 
 function normalizeProducts(products, baseUrl) {
@@ -144,4 +150,5 @@ module.exports = {
   normalizeProduct,
   normalizeProducts,
   sanitizeSpecsInput,
+  stripPrivateProductFields,
 };

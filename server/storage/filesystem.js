@@ -44,7 +44,10 @@ function createFilesystemStorage({ storageRoot, repoDataFile }) {
       .jpeg({ quality: 85, mozjpeg: true })
       .toFile(filepath);
 
-    return `/api/images/bikes/${productId}/${filename}`;
+    return {
+      url: `/api/images/bikes/${productId}/${filename}`,
+      filename,
+    };
   }
 
   async function deleteProductImages(productId) {

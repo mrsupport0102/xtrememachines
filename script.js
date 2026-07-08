@@ -120,9 +120,11 @@ async function init() {
   const trackEl = document.getElementById('carouselTrack');
   if (!trackEl) return;
 
-  products = Array.isArray(window.__CAROUSEL_PRODUCTS__) && window.__CAROUSEL_PRODUCTS__.length
-    ? window.__CAROUSEL_PRODUCTS__
-    : await loadNewestProducts(5);
+  products = await loadNewestProducts(8);
+
+  if (!products.length && Array.isArray(window.__CAROUSEL_PRODUCTS__) && window.__CAROUSEL_PRODUCTS__.length) {
+    products = window.__CAROUSEL_PRODUCTS__;
+  }
 
   if (!products.length) {
     trackEl.innerHTML = `

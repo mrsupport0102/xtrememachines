@@ -179,13 +179,23 @@ function createApp({ serveStatic = true } = {}) {
         'Content-Type': 'image/jpeg',
         'Content-Length': String(data.length),
         'Cache-Control': 'public, max-age=86400',
-        'X-XM-Images': 'v3',
+        'X-XM-Images': 'v4',
       });
       res.end(data);
     } catch (err) {
       console.error('getImage fejlede:', err.message);
       res.status(404).end();
     }
+  }
+
+  function pruneImageData(imageData, images) {
+    if (!imageData || typeof imageData !== 'object') return imageData || undefined;
+    const filenames = new Set((images || []).map(url => String(url).split('/').pop()).filter(Boolean));
+    const next = {};
+    for (const [name, data] of Object.entries(imageData)) {
+      if (filenames.has(name)) next[name] = data;
+    }
+    return Object.keys(next).length ? next : undefined;
   }
 
   function isValidJpegBuffer(buf) {
@@ -302,9 +312,11 @@ function createApp({ serveStatic = true } = {}) {
 
       const data = sanitizeProductInput(req.body, req);
       const existing = products[index];
+      const imageData = pruneImageData(existing.imageData, data.images);
       products[index] = {
         ...existing,
         ...data,
+        imageData,
         id: existing.id,
         status: existing.status === 'sold' ? 'sold' : 'available',
         badge: existing.status === 'sold' ? 'Solgt' : undefined,
@@ -387,6 +399,7 @@ function createApp({ serveStatic = true } = {}) {
 
       const baseUrl = getSiteBaseUrl(req);
       const relUrl = normalizeStoredImages([url], url, baseUrl).image;
+      const filename = relUrl.split('/').pop();
 
       const products = await readAndMigrateProducts();
       const index = products.findIndex(p => p.id === productId);
@@ -404,17 +417,20 @@ function createApp({ serveStatic = true } = {}) {
         image = images[0] || '';
       }
 
+      const imageData = { ...(product.imageData || {}) };
+      if (filename) delete imageData[filename];
+
       const updated = {
         ...product,
         images,
         image,
+        imageData,
         updatedAt: new Date().toISOString(),
       };
       products[index] = updated;
 
-      if (typeof storage.deleteImage === 'function') {
-        const filename = relUrl.split('/').pop();
-        if (filename) await storage.deleteImage(productId, filename);
+      if (typeof storage.deleteImage === 'function' && filename) {
+        await storage.deleteImage(productId, filename);
       }
 
       await saveProductRecord(products, updated);
@@ -444,16 +460,24 @@ function createApp({ serveStatic = true } = {}) {
       }
 
       const urls = [];
+      const index = products.findIndex(p => p.id === productId);
+      const imageData = { ...(products[index].imageData || {}) };
+
       for (const file of uploads) {
-        const url = await storage.saveImage(file.buffer, productId, file.originalname);
+        const saved = await storage.saveImage(file.buffer, productId, file.originalname);
+        const url = saved.url || saved;
+        const filename = saved.filename || String(url).split('/').pop();
         urls.push(url);
+        if (saved.base64 && filename) {
+          imageData[filename] = saved.base64;
+        }
       }
 
-      const index = products.findIndex(p => p.id === productId);
       const updated = {
         ...products[index],
         images: [...(products[index].images || []), ...urls],
         image: products[index].image || urls[0],
+        imageData,
         updatedAt: new Date().toISOString(),
       };
       products[index] = updated;

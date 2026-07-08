@@ -10,7 +10,6 @@ try {
 }
 
 const MANIFEST_KEY = 'manifest';
-const IMAGE_STORE_VERSION = 2;
 
 function loadSeedFromDisk(repoDataFile) {
   const candidates = [
@@ -50,6 +49,10 @@ function decodeBase64Image(value) {
   } catch {
     return null;
   }
+}
+
+function imagePublicPath(productId, filename) {
+  return `/api/images/bikes/${productId}/${filename}`;
 }
 
 function createNetlifyStorage({ repoDataFile }) {
@@ -144,21 +147,14 @@ function createNetlifyStorage({ repoDataFile }) {
     }
   }
 
-  function imagePublicPath(productId, filename) {
-    return `/api/images/bikes/${productId}/${filename}`;
-  }
-
   async function saveImage(buffer, productId, originalName) {
     try {
-      const { imagesStore } = getStores();
-
       const base = path.basename(originalName, path.extname(originalName))
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') || 'billede';
 
       const filename = `${base}-${Date.now()}.jpg`;
-      const key = `${productId}/${filename}`;
 
       let optimized = Buffer.from(buffer);
       if (isValidJpeg(optimized)) {
@@ -187,49 +183,55 @@ function createNetlifyStorage({ repoDataFile }) {
         throw new Error('Kunne ikke behandle billedet – prøv et andet billede');
       }
 
-      await imagesStore.setJSON(key, {
-        v: IMAGE_STORE_VERSION,
-        contentType: 'image/jpeg',
-        data: optimized.toString('base64'),
-      });
-
-      return imagePublicPath(productId, filename);
+      // Gemmes i product.imageData ved upload – returnerer base64 til createApp
+      return {
+        url: imagePublicPath(productId, filename),
+        filename,
+        base64: optimized.toString('base64'),
+      };
     } catch (err) {
-      console.error('Netlify Blobs saveImage fejlede:', err.message);
+      console.error('Netlify saveImage fejlede:', err.message);
       throw new Error(`Billedupload fejlede: ${err.message}`);
     }
   }
 
   async function getImage(productId, filename) {
-    const { imagesStore } = getStores();
-    const key = `${productId}/${filename}`;
-
     try {
+      const { productsStore } = getStores();
+      const product = await productsStore.get(productKey(productId), { type: 'json' });
+      if (product?.imageData?.[filename]) {
+        const buf = decodeBase64Image(product.imageData[filename]);
+        if (buf) return buf;
+      }
+    } catch (err) {
+      console.warn('getImage fra product.imageData fejlede:', err.message);
+    }
+
+    // Legacy: ældre separate blob-lager (ofte korrupt – springes over hvis ugyldigt)
+    try {
+      const { imagesStore } = getStores();
+      const key = `${productId}/${filename}`;
+
       const json = await imagesStore.get(key, { type: 'json' });
       if (json?.data) {
         const buf = decodeBase64Image(json.data);
         if (buf) return buf;
       }
-    } catch {
-      // Prøv ældre formater
-    }
 
-    try {
       const asText = await imagesStore.get(key, { type: 'text' });
-      const buf = decodeBase64Image(asText);
-      if (buf) return buf;
+      const bufFromText = decodeBase64Image(asText);
+      if (bufFromText) return bufFromText;
+
+      const data = await imagesStore.get(key, { type: 'arrayBuffer' });
+      if (data) {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        if (isValidJpeg(buf)) return buf;
+      }
     } catch {
-      // Ignorer
+      // Ignorer legacy fejl
     }
 
-    try {
-      const data = await imagesStore.get(key, { type: 'arrayBuffer' });
-      if (!data) return null;
-      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
-      return isValidJpeg(buf) ? buf : null;
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   async function deleteProductImages(productId) {
@@ -242,13 +244,8 @@ function createNetlifyStorage({ repoDataFile }) {
     }
   }
 
-  async function deleteImage(productId, filename) {
-    try {
-      const { imagesStore } = getStores();
-      await imagesStore.delete(`${productId}/${filename}`);
-    } catch (err) {
-      console.error('Netlify Blobs deleteImage fejlede:', err.message);
-    }
+  async function deleteImage(_productId, _filename) {
+    // Billeder gemmes i product.imageData – slettes via createApp
   }
 
   function initStorage() {}
