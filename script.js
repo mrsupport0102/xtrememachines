@@ -16,7 +16,11 @@ function createCarousel({ trackEl, dotsEl, prevEl, nextEl, items, maxItems = 8, 
   let currentIndex = 0;
   let itemsPerView = getItemsPerView();
   let autoPlay = null;
+  let paused = false;
   const gap = 24;
+  const wrapperEl = trackEl.closest('.carousel-wrapper');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const shouldAutoPlay = autoPlayMs > 0 && !prefersReducedMotion;
 
   function render() {
     trackEl.innerHTML = subset.map(p => productCardHTML(p)).join('');
@@ -37,6 +41,7 @@ function createCarousel({ trackEl, dotsEl, prevEl, nextEl, items, maxItems = 8, 
       dot.addEventListener('click', () => {
         currentIndex = parseInt(dot.dataset.index, 10);
         update();
+        resetAutoPlay();
       });
     });
   }
@@ -66,8 +71,9 @@ function createCarousel({ trackEl, dotsEl, prevEl, nextEl, items, maxItems = 8, 
   }
 
   function startAutoPlay() {
+    if (!shouldAutoPlay || paused) return;
     stopAutoPlay();
-    if (autoPlayMs) autoPlay = setInterval(next, autoPlayMs);
+    autoPlay = setInterval(next, autoPlayMs);
   }
 
   function stopAutoPlay() {
@@ -77,17 +83,41 @@ function createCarousel({ trackEl, dotsEl, prevEl, nextEl, items, maxItems = 8, 
     }
   }
 
-  prevEl.addEventListener('click', prev);
-  nextEl.addEventListener('click', next);
+  function resetAutoPlay() {
+    stopAutoPlay();
+    startAutoPlay();
+  }
 
-  trackEl.addEventListener('mouseenter', stopAutoPlay);
-  trackEl.addEventListener('mouseleave', startAutoPlay);
+  function pauseAutoPlay() {
+    paused = true;
+    stopAutoPlay();
+  }
+
+  function resumeAutoPlay() {
+    paused = false;
+    startAutoPlay();
+  }
+
+  prevEl.addEventListener('click', () => { prev(); resetAutoPlay(); });
+  nextEl.addEventListener('click', () => { next(); resetAutoPlay(); });
+
+  const hoverTarget = wrapperEl || trackEl;
+  hoverTarget.addEventListener('mouseenter', pauseAutoPlay);
+  hoverTarget.addEventListener('mouseleave', resumeAutoPlay);
 
   let touchStartX = 0;
   trackEl.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
   trackEl.addEventListener('touchend', e => {
     const diff = touchStartX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) diff > 0 ? next() : prev();
+    if (Math.abs(diff) > 50) {
+      diff > 0 ? next() : prev();
+      resetAutoPlay();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseAutoPlay();
+    else resumeAutoPlay();
   });
 
   function onResize() {
@@ -143,7 +173,8 @@ async function init() {
     prevEl: document.getElementById('prevBtn'),
     nextEl: document.getElementById('nextBtn'),
     items: products,
-    maxItems: 5,
+    maxItems: 8,
+    autoPlayMs: 4500,
   });
 
   initNav();
