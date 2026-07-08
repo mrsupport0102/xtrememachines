@@ -647,21 +647,36 @@ function renderEditor() {
 // ---- Event binding ----
 
 function bindShellEvents() {
-  document.querySelector('[data-action="list"]')?.addEventListener('click', () => {
-    state.view = 'list';
-    render();
-  });
-  document.querySelector('[data-action="new"]')?.addEventListener('click', () => openEditor(null));
-  document.querySelector('[data-action="logout"]')?.addEventListener('click', async () => {
-    await api('/api/admin/logout', { method: 'POST' });
-    window.location.href = '/admin/';
+  const shell = document.querySelector('.admin-shell');
+  if (!shell || shell.dataset.shellBound) return;
+
+  shell.dataset.shellBound = 'true';
+  shell.addEventListener('click', e => {
+    const actionEl = e.target.closest('[data-action]');
+    if (!actionEl || !shell.contains(actionEl)) return;
+
+    switch (actionEl.dataset.action) {
+      case 'list':
+        state.view = 'list';
+        render();
+        break;
+      case 'new':
+        openEditor(null);
+        break;
+      case 'logout':
+        api('/api/admin/logout', { method: 'POST' }).then(() => {
+          window.location.href = '/admin/';
+        });
+        break;
+      default:
+        break;
+    }
   });
 }
 
 function bindListEvents() {
   bindShellEvents();
 
-  document.querySelector('[data-action="new"]')?.addEventListener('click', () => openEditor(null));
   document.getElementById('searchInput')?.addEventListener('input', e => {
     state.search = e.target.value;
     render();
