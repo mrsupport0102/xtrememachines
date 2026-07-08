@@ -102,8 +102,9 @@ function getPreviewSpecs() {
 
 function imageSrc(url) {
   if (!url) return '';
-  if (/^https?:\/\//i.test(url)) return url;
-  return url.startsWith('/') ? url : `/${url}`;
+  if (url.startsWith('blob:')) return url;
+  const src = /^https?:\/\//i.test(url) ? url : (url.startsWith('/') ? url : `/${url}`);
+  return src;
 }
 
 function relativePath(url) {
@@ -299,16 +300,32 @@ async function saveProduct() {
 async function uploadFiles(fileList) {
   if (!fileList.length) return;
 
+  const files = [...fileList].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+
+  // Vis previews med det samme (før upload)
+  const blobUrls = files.map(file => URL.createObjectURL(file));
+  blobUrls.forEach((url, i) => {
+    state.images.push({
+      id: `pending-${Date.now()}-${i}`,
+      url,
+      main: state.images.length === 0 && i === 0,
+      pending: true,
+    });
+  });
+
   state.uploading = true;
   state.message = { type: '', text: '' };
   render();
 
   try {
     await ensureProductId();
-    const files = [...fileList].filter(f => f.type.startsWith('image/'));
     let done = 0;
 
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const blobUrl = blobUrls[i];
+
       state.uploadProgress = `Uploader ${done + 1} af ${files.length}…`;
       render();
 
@@ -320,31 +337,35 @@ async function uploadFiles(fileList) {
         body: JSON.stringify({ images: [{ name: compressed.name, data }] }),
       });
 
-      const newUrls = result.urls || [];
-      newUrls.forEach(url => {
-        state.images.push({
-          id: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          url,
-          main: state.images.length === 0,
-        });
-      });
+      URL.revokeObjectURL(blobUrl);
 
-      if (result.product?.images) {
-        state.images = result.product.images.map((url, i) => ({
-          id: state.images[i]?.id || `img-${i}-${Date.now()}`,
-          url,
-          main: relativePath(url) === relativePath(result.product.image),
-        }));
-        if (!state.images.some(i => i.main) && state.images.length) {
-          state.images[0].main = true;
-        }
+      const serverUrl = result.urls?.[0]
+        || (result.product?.images?.length ? result.product.images[result.product.images.length - 1] : null);
+
+      const pendingIdx = state.images.findIndex(img => img.url === blobUrl);
+
+      if (pendingIdx >= 0 && serverUrl) {
+        const wasMain = state.images[pendingIdx].main;
+        state.images[pendingIdx] = {
+          id: `img-${Date.now()}-${i}`,
+          url: serverUrl,
+          main: wasMain,
+        };
       }
 
       done++;
     }
 
+    // Ryd eventuelle leftover pending previews
+    state.images = state.images.filter(img => !img.pending);
+    if (!state.images.some(img => img.main) && state.images.length) {
+      state.images[0].main = true;
+    }
+
     toast(`${done} billede${done !== 1 ? 'r' : ''} uploadet`);
   } catch (err) {
+    state.images = state.images.filter(img => !img.pending);
+    blobUrls.forEach(u => URL.revokeObjectURL(u));
     state.message = { type: 'error', text: err.message };
   } finally {
     state.uploading = false;

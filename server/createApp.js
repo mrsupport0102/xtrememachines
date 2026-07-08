@@ -166,23 +166,31 @@ function createApp({ serveStatic = true } = {}) {
     }
   });
 
-  app.get('/assets/images/bikes/:productId/:filename', async (req, res) => {
+  app.get('/api/images/bikes/:productId/:filename', serveBikeImage);
+  app.get('/assets/images/bikes/:productId/:filename', serveBikeImage);
+
+  async function serveBikeImage(req, res) {
     try {
       const data = await storage.getImage(req.params.productId, req.params.filename);
-      if (!data || !Buffer.isBuffer(data) || data.length < 3 || data[0] !== 0xff || data[1] !== 0xd8) {
+      if (!data || !Buffer.isBuffer(data) || !isValidJpegBuffer(data)) {
         return res.status(404).end();
       }
       res.set({
         'Content-Type': 'image/jpeg',
-        'Content-Length': data.length,
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Length': String(data.length),
+        'Cache-Control': 'public, max-age=86400',
+        'X-XM-Images': 'v3',
       });
       res.end(data);
     } catch (err) {
       console.error('getImage fejlede:', err.message);
       res.status(404).end();
     }
-  });
+  }
+
+  function isValidJpegBuffer(buf) {
+    return buf.length > 100 && buf[0] === 0xff && buf[1] === 0xd8;
+  }
 
   // ---- Admin auth ----
 

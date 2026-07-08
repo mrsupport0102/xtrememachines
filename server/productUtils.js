@@ -76,11 +76,12 @@ function toRelativeUrl(url, baseUrl) {
     return relative.startsWith('/') ? relative : `/${relative}`;
   }
 
+  if (value.startsWith('/api/images/bikes/')) return value;
   if (value.startsWith('/assets/images/bikes/')) return value;
 
   try {
     const parsed = new URL(value);
-    if (parsed.pathname.startsWith('/assets/images/bikes/')) {
+    if (parsed.pathname.startsWith('/api/images/bikes/') || parsed.pathname.startsWith('/assets/images/bikes/')) {
       return parsed.pathname;
     }
   } catch {

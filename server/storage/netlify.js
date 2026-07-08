@@ -6,10 +6,11 @@ let bundledSeed = null;
 try {
   bundledSeed = require('../../data/products.json');
 } catch {
-  // Ignoreres – prøver filsti ved runtime
+  // Ignoreres
 }
 
 const MANIFEST_KEY = 'manifest';
+const IMAGE_STORE_VERSION = 2;
 
 function loadSeedFromDisk(repoDataFile) {
   const candidates = [
@@ -23,7 +24,6 @@ function loadSeedFromDisk(repoDataFile) {
       return JSON.parse(fs.readFileSync(candidate, 'utf8'));
     }
   }
-
   return null;
 }
 
@@ -34,6 +34,22 @@ function getSeedProducts(repoDataFile) {
 
 function productKey(id) {
   return `product:${id}`;
+}
+
+function isValidJpeg(buf) {
+  return Buffer.isBuffer(buf) && buf.length > 100 && buf[0] === 0xff && buf[1] === 0xd8;
+}
+
+function decodeBase64Image(value) {
+  if (!value || typeof value !== 'string') return null;
+  const cleaned = value.replace(/^data:[^;]+;base64,/, '').replace(/\s/g, '');
+  if (!cleaned) return null;
+  try {
+    const buf = Buffer.from(cleaned, 'base64');
+    return isValidJpeg(buf) ? buf : null;
+  } catch {
+    return null;
+  }
 }
 
 function createNetlifyStorage({ repoDataFile }) {
@@ -63,7 +79,6 @@ function createNetlifyStorage({ repoDataFile }) {
   async function readLegacyProducts(store) {
     const legacy = await store.get('products', { type: 'json' });
     if (!Array.isArray(legacy) || !legacy.length) return null;
-
     await seedStore(store, legacy);
     await store.delete('products');
     return legacy;
@@ -129,8 +144,8 @@ function createNetlifyStorage({ repoDataFile }) {
     }
   }
 
-  function isValidJpeg(buf) {
-    return Buffer.isBuffer(buf) && buf.length > 2 && buf[0] === 0xff && buf[1] === 0xd8;
+  function imagePublicPath(productId, filename) {
+    return `/api/images/bikes/${productId}/${filename}`;
   }
 
   async function saveImage(buffer, productId, originalName) {
@@ -150,27 +165,70 @@ function createNetlifyStorage({ repoDataFile }) {
         try {
           optimized = await sharp(optimized)
             .rotate()
-            .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 85, mozjpeg: true })
+            .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 82, mozjpeg: true })
             .toBuffer();
         } catch (err) {
           console.warn('Sharp komprimering sprunget over:', err.message);
         }
+      } else {
+        try {
+          optimized = await sharp(buffer)
+            .rotate()
+            .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 82, mozjpeg: true })
+            .toBuffer();
+        } catch (err) {
+          console.warn('Sharp konvertering fejlede:', err.message);
+        }
       }
 
       if (!isValidJpeg(optimized)) {
-        throw new Error('Ugyldigt billedformat efter behandling');
+        throw new Error('Kunne ikke behandle billedet – prøv et andet billede');
       }
 
-      // Gem som base64-tekst – undgår UTF-8-korruption af binære JPEG-bytes i Blobs
-      const base64Data = optimized.toString('base64');
-      await imagesStore.set(key, base64Data, {
-        metadata: { contentType: 'image/jpeg', encoding: 'base64' },
+      await imagesStore.setJSON(key, {
+        v: IMAGE_STORE_VERSION,
+        contentType: 'image/jpeg',
+        data: optimized.toString('base64'),
       });
-      return `/assets/images/bikes/${productId}/${filename}`;
+
+      return imagePublicPath(productId, filename);
     } catch (err) {
       console.error('Netlify Blobs saveImage fejlede:', err.message);
       throw new Error(`Billedupload fejlede: ${err.message}`);
+    }
+  }
+
+  async function getImage(productId, filename) {
+    const { imagesStore } = getStores();
+    const key = `${productId}/${filename}`;
+
+    try {
+      const json = await imagesStore.get(key, { type: 'json' });
+      if (json?.data) {
+        const buf = decodeBase64Image(json.data);
+        if (buf) return buf;
+      }
+    } catch {
+      // Prøv ældre formater
+    }
+
+    try {
+      const asText = await imagesStore.get(key, { type: 'text' });
+      const buf = decodeBase64Image(asText);
+      if (buf) return buf;
+    } catch {
+      // Ignorer
+    }
+
+    try {
+      const data = await imagesStore.get(key, { type: 'arrayBuffer' });
+      if (!data) return null;
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+      return isValidJpeg(buf) ? buf : null;
+    } catch {
+      return null;
     }
   }
 
@@ -181,30 +239,6 @@ function createNetlifyStorage({ repoDataFile }) {
       await Promise.all(blobs.map(blob => imagesStore.delete(blob.key)));
     } catch (err) {
       console.error('Netlify Blobs deleteProductImages fejlede:', err.message);
-    }
-  }
-
-  async function getImage(productId, filename) {
-    const { imagesStore } = getStores();
-    const key = `${productId}/${filename}`;
-
-    try {
-      const asText = await imagesStore.get(key, { type: 'text' });
-      if (asText) {
-        const buf = Buffer.from(asText, 'base64');
-        if (isValidJpeg(buf)) return buf;
-      }
-    } catch {
-      // Prøv legacy binær format nedenfor
-    }
-
-    try {
-      const data = await imagesStore.get(key, { type: 'arrayBuffer' });
-      if (!data) return null;
-      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
-      return isValidJpeg(buf) ? buf : null;
-    } catch {
-      return null;
     }
   }
 
